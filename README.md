@@ -3,10 +3,10 @@
 ![Automedia](docs/banner.png)
 
 <p align="center">
-  <a href="https://github.com/tyrannyme/automedia/actions/workflows/ci.yml"><img alt="CI status" src="https://img.shields.io/github/actions/workflow/status/tyrannyme/automedia/ci.yml?branch=main&amp;style=for-the-badge&amp;logo=githubactions&amp;logoColor=white&amp;label=CI"></a>
-  <a href="LICENSE"><img alt="Apache 2.0 license" src="https://img.shields.io/badge/license-Apache--2.0-D22128?style=for-the-badge&amp;logo=apache&amp;logoColor=white"></a>
-  <a href="https://www.electronjs.org/"><img alt="Electron 43" src="https://img.shields.io/badge/Electron-43-47848F?style=for-the-badge&amp;logo=electron&amp;logoColor=white"></a>
-  <a href="https://www.typescriptlang.org/"><img alt="TypeScript 7" src="https://img.shields.io/badge/TypeScript-7-3178C6?style=for-the-badge&amp;logo=typescript&amp;logoColor=white"></a>
+  <a href="https://github.com/tyrannyme/automedia/actions/workflows/ci.yml"><picture><source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/github/tyrannyme/automedia/ci.svg?variant=outline&amp;size=sm&amp;font=geist&amp;animate=glow&amp;mode=dark"><img alt="CI status" src="https://shieldcn.dev/github/tyrannyme/automedia/ci.svg?variant=outline&amp;size=sm&amp;font=geist&amp;animate=glow&amp;mode=light"></picture></a>
+  <a href="LICENSE"><picture><source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/badge/license-Apache--2.0-D22128.svg?variant=outline&amp;size=sm&amp;font=geist&amp;logo=apache&amp;mode=dark"><img alt="Apache 2.0 license" src="https://shieldcn.dev/badge/license-Apache--2.0-D22128.svg?variant=outline&amp;size=sm&amp;font=geist&amp;logo=apache&amp;mode=light"></picture></a>
+  <a href="https://www.electronjs.org/"><picture><source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/badge/Electron-43-47848F.svg?variant=secondary&amp;size=sm&amp;font=geist&amp;logo=electron&amp;mode=dark"><img alt="Electron 43" src="https://shieldcn.dev/badge/Electron-43-47848F.svg?variant=secondary&amp;size=sm&amp;font=geist&amp;logo=electron&amp;mode=light"></picture></a>
+  <a href="https://www.typescriptlang.org/"><picture><source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/badge/TypeScript-7-3178C6.svg?variant=secondary&amp;size=sm&amp;font=geist&amp;logo=typescript&amp;mode=dark"><img alt="TypeScript 7" src="https://shieldcn.dev/badge/TypeScript-7-3178C6.svg?variant=secondary&amp;size=sm&amp;font=geist&amp;logo=typescript&amp;mode=light"></picture></a>
 </p>
 
 Automedia is a local Electron studio for authoring browser-based stills, animations, and videos. A project is an HTML, CSS, and JavaScript document with composition settings, optional media tracks, timeline markers, and controls.
