@@ -78,6 +78,15 @@ type CompositionLease = {
   until: string;
 };
 
+type DocumentTrackInput = {
+  kind: "block" | "music";
+  asset: string;
+  name: string;
+  mute: boolean;
+  start: number;
+  requestedLane?: number;
+};
+
 const defaultLeaseSeconds = 120;
 
 const defaultHtml = `<!doctype html>
@@ -488,14 +497,15 @@ export class CompositionStore {
     const dir = path.join(this.compositionDir(id), "music", musicId);
     await ensureDir(dir);
     await writeAtomic(path.join(dir, "pattern.js"), defaultMusicPattern);
-    return this.insertDocumentTrack(id, media, {
+    const input: DocumentTrackInput = {
       kind: "music",
       asset: musicId,
       name: label,
       mute: false,
       start,
-      ...(requestedLane !== undefined ? { requestedLane } : {}),
-    });
+    };
+    if (requestedLane !== undefined) input.requestedLane = requestedLane;
+    return this.insertDocumentTrack(id, media, input);
   }
 
   private async createDocumentTrack(
@@ -517,27 +527,21 @@ export class CompositionStore {
     await writeAtomic(path.join(dir, "index.html"), files.html.replace("Untitled", label));
     await writeAtomic(path.join(dir, "style.css"), files.css);
     await writeAtomic(path.join(dir, "script.js"), files.js);
-    return this.insertDocumentTrack(id, media, {
+    const input: DocumentTrackInput = {
       kind,
       asset: blockId,
       name: label,
       mute,
       start,
-      ...(requestedLane !== undefined ? { requestedLane } : {}),
-    });
+    };
+    if (requestedLane !== undefined) input.requestedLane = requestedLane;
+    return this.insertDocumentTrack(id, media, input);
   }
 
   private async insertDocumentTrack(
     id: string,
     media: MediaDocument,
-    input: {
-      kind: "block" | "music";
-      asset: string;
-      name: string;
-      mute: boolean;
-      start: number;
-      requestedLane?: number;
-    },
+    input: DocumentTrackInput,
   ): Promise<MediaTrack> {
     const lane = preferredLane(media.tracks, input.kind, input.requestedLane);
     const track: MediaTrack = {

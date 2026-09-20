@@ -167,12 +167,21 @@ export async function write(store: CompositionStore) {
   const assetsDir = path.join(store.compositionDir(composition.id), "assets");
   const fonts = path.join(process.cwd(), "src/renderer/fonts");
   await mkdir(assetsDir, { recursive: true });
-  await copyFile(path.join(fonts, "nunito-latin-600-normal.woff2"), path.join(assetsDir, "nunito.woff2"));
-  await copyFile(path.join(fonts, "poppins-latin-400-normal.woff2"), path.join(assetsDir, "poppins.woff2"));
+  await copyFile(
+    path.join(fonts, "nunito-latin-600-normal.woff2"),
+    path.join(assetsDir, "nunito.woff2"),
+  );
+  await copyFile(
+    path.join(fonts, "poppins-latin-400-normal.woff2"),
+    path.join(assetsDir, "poppins.woff2"),
+  );
   await copyFile(
     path.join(fonts, "poppins-latin-500-normal.woff2"),
     path.join(assetsDir, "poppins-500.woff2"),
   );
-  await copyFile(path.join(fonts, "dm-mono-latin-400-normal.woff2"), path.join(assetsDir, "dm-mono.woff2"));
+  await copyFile(
+    path.join(fonts, "dm-mono-latin-400-normal.woff2"),
+    path.join(assetsDir, "dm-mono.woff2"),
+  );
   return store.get(composition.id);
 }

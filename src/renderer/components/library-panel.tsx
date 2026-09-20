@@ -45,6 +45,11 @@ type LibraryPanelProps = {
   onTrack: (track: MediaTrack) => Promise<void>;
 };
 
+function beginAssetDrag(event: React.DragEvent, asset: string) {
+  event.dataTransfer.setData(LIBRARY_ASSET_MIME, asset);
+  event.dataTransfer.effectAllowed = "copy";
+}
+
 export function LibraryPanel({ composition, files, collapsed, onTrack }: LibraryPanelProps) {
   const [assets, setAssets] = useState<string[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
@@ -69,11 +74,6 @@ export function LibraryPanel({ composition, files, collapsed, onTrack }: Library
     } catch (error) {
       setAddError(friendlyMediaError(error));
     }
-  };
-
-  const beginAssetDrag = (event: React.DragEvent, asset: string) => {
-    event.dataTransfer.setData(LIBRARY_ASSET_MIME, asset);
-    event.dataTransfer.effectAllowed = "copy";
   };
 
   const importAsset = async () => {

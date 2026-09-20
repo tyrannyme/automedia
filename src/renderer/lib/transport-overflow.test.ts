@@ -43,7 +43,7 @@ describe("partitionTransportTools", () => {
     const next = partitionTransportTools(tools, 200);
     const order = tools.map((tool) => tool.id);
     expect(next.visible.map((id) => order.indexOf(id))).toEqual(
-      [...next.visible.map((id) => order.indexOf(id))].toSorted((left, right) => left - right),
+      next.visible.map((id) => order.indexOf(id)).toSorted((left, right) => left - right),
     );
   });
 

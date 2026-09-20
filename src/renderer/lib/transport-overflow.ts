@@ -4,6 +4,11 @@ export type TransportToolSize = {
   priority: number;
 };
 
+export type TransportToolPartition = {
+  visible: string[];
+  overflow: string[];
+};
+
 export const TRANSPORT_GAP = 4;
 export const TRANSPORT_ICON = 36;
 export const TRANSPORT_OVERFLOW = 36;
@@ -14,7 +19,7 @@ export function partitionTransportTools(
   availableWidth: number,
   overflowWidth = TRANSPORT_OVERFLOW,
   gap = TRANSPORT_GAP,
-): { visible: string[]; overflow: string[] } {
+): TransportToolPartition {
   if (tools.length === 0) return { visible: [], overflow: [] };
 
   const widthOf = (ids: ReadonlySet<string>, withOverflow: boolean) => {

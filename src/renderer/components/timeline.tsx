@@ -1042,7 +1042,12 @@ export function Timeline({
               setSnapAt(rawTimeAt(event.clientX));
             }}
             onDragLeave={(event) => {
-              if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+              if (
+                event.relatedTarget instanceof Node &&
+                event.currentTarget.contains(event.relatedTarget)
+              ) {
+                return;
+              }
               setSnapAt(null);
             }}
             onDrop={(event) => {
@@ -1051,9 +1056,10 @@ export function Timeline({
               setSnapAt(null);
               if (!asset) return;
               event.preventDefault();
-              const laneValue = (event.target as Element | null)
-                ?.closest?.("[data-lane]")
-                ?.getAttribute("data-lane");
+              const laneValue =
+                event.target instanceof Element
+                  ? event.target.closest("[data-lane]")?.getAttribute("data-lane")
+                  : null;
               const lane =
                 laneValue === null || laneValue === undefined ? undefined : Number(laneValue);
               onDropAsset(

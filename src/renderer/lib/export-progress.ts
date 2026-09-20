@@ -28,10 +28,7 @@ export function exportProgressPercent(job: ExportJob | null): number {
 
 export type ExportDialogView = "setup" | "running" | "ready" | "failed";
 
-export function exportDialogView(
-  job: ExportJob | null,
-  followId: string | null,
-): ExportDialogView {
+export function exportDialogView(job: ExportJob | null, followId: string | null): ExportDialogView {
   if (!job || !followId || job.id !== followId) return "setup";
   if (exportIsRunning(job)) return "running";
   if (job.phase === "completed") return "ready";

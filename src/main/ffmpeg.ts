@@ -27,8 +27,8 @@ export async function ffmpegHealth(): Promise<FfmpegHealth> {
 }
 
 export function throwIfMissingBinary(
-  error: unknown,
+  cause: unknown,
   binary: "ffmpeg" | "ffprobe" = "ffmpeg",
 ): never {
-  throw mapMissingBinaryError(error) ?? missingBinaryError(binary);
+  throw mapMissingBinaryError(cause) ?? missingBinaryError(binary);
 }

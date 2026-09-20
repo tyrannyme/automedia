@@ -45,6 +45,11 @@ type ProjectSidebarProps = {
 
 const PROJECT_MIME = "application/x-automedia-project";
 
+function edgeFromEvent(event: React.DragEvent<HTMLElement>) {
+  const rect = event.currentTarget.getBoundingClientRect();
+  return event.clientY > rect.top + rect.height / 2 ? "after" : "before";
+}
+
 export function ProjectSidebar({
   compositions,
   compositionId,
@@ -74,11 +79,6 @@ export function ProjectSidebar({
     const ids = moveId(current, sourceId, targetId, after);
     if (ids.every((id, index) => id === current[index])) return;
     onReorder(ids);
-  };
-
-  const edgeFromEvent = (event: React.DragEvent<HTMLElement>) => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    return event.clientY > rect.top + rect.height / 2 ? "after" : "before";
   };
 
   return (

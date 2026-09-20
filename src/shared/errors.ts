@@ -48,11 +48,11 @@ export function missingBinaryError(binary: "ffmpeg" | "ffprobe"): AppError {
   );
 }
 
-export function mapMissingBinaryError(error: unknown): AppError | null {
-  if (!(error instanceof Error)) return null;
-  const code = "code" in error ? String(error.code) : "";
+export function mapMissingBinaryError(cause: unknown): AppError | null {
+  if (!(cause instanceof Error)) return null;
+  const code = "code" in cause ? String(cause.code) : "";
   if (code !== "ENOENT") return null;
-  const text = `${error.message} ${error.name}`;
+  const text = `${cause.message} ${cause.name}`;
   if (/\bffprobe\b/i.test(text)) return missingBinaryError("ffprobe");
   if (/\bffmpeg\b/i.test(text)) return missingBinaryError("ffmpeg");
   return null;
