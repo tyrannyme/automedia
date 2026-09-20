@@ -2,6 +2,13 @@
 
 ![Automedia](docs/banner.png)
 
+<p align="center">
+  <a href="https://github.com/tyrannyme/automedia/actions/workflows/ci.yml"><img alt="CI status" src="https://img.shields.io/github/actions/workflow/status/tyrannyme/automedia/ci.yml?branch=main&amp;style=for-the-badge&amp;logo=githubactions&amp;logoColor=white&amp;label=CI"></a>
+  <a href="LICENSE"><img alt="Apache 2.0 license" src="https://img.shields.io/badge/license-Apache--2.0-D22128?style=for-the-badge&amp;logo=apache&amp;logoColor=white"></a>
+  <a href="https://www.electronjs.org/"><img alt="Electron 43" src="https://img.shields.io/badge/Electron-43-47848F?style=for-the-badge&amp;logo=electron&amp;logoColor=white"></a>
+  <a href="https://www.typescriptlang.org/"><img alt="TypeScript 7" src="https://img.shields.io/badge/TypeScript-7-3178C6?style=for-the-badge&amp;logo=typescript&amp;logoColor=white"></a>
+</p>
+
 Automedia is a local Electron studio for authoring browser-based stills, animations, and videos. A project is an HTML, CSS, and JavaScript document with composition settings, optional media tracks, timeline markers, and controls.
 
 The banner above is a PNG exported from Automedia — the same composition open in the studio shots below.
@@ -204,3 +211,7 @@ src/shared     Schemas, IPC contracts, clock, limits, and runtime types
 fixtures       Media copied into media-backed examples
 tools/oxlint   Local oxlint rules
 ```
+
+## License
+
+Automedia is licensed under the [Apache License 2.0](LICENSE).
