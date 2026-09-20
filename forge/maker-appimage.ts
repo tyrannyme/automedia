@@ -1,5 +1,5 @@
 import { MakerBase, type MakerOptions } from "@electron-forge/maker-base";
-import makeAppImage from "electron-forge-maker-appimage";
+import { buildForge, type PackagerOptions, type PublishOptions } from "app-builder-lib";
 
 export class MakerAppImage extends MakerBase<Record<string, never>> {
   name = "appimage";
@@ -10,13 +10,11 @@ export class MakerAppImage extends MakerBase<Record<string, never>> {
   }
 
   async make(opts: MakerOptions): Promise<string[]> {
-    const artifacts = await makeAppImage({
-      dir: opts.dir,
-      makeDir: opts.makeDir,
-      appName: opts.appName,
-      targetArch: opts.targetArch,
-      targetPlatform: opts.targetPlatform,
-    });
+    const buildOptions = {
+      linux: [`appimage:${opts.targetArch}`],
+      publish: "never",
+    } satisfies PackagerOptions & PublishOptions;
+    const artifacts = await buildForge({ dir: opts.dir }, buildOptions);
     return artifacts;
   }
 }
