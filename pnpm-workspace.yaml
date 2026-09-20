@@ -1,0 +1,14 @@
+minimumReleaseAge: 4320
+minimumReleaseAgeStrict: true
+blockExoticSubdeps: true
+autoInstallPeers: true
+strictPeerDependencies: false
+nodeLinker: hoisted
+allowBuilds:
+  electron: true
+  esbuild: true
+  electron-winstaller: false
+  "@vgpu/adapter-node": false
+  webgpu: false
+overrides:
+  "@electron/rebuild": "4.2.0"

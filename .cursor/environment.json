@@ -1,0 +1,8 @@
+{
+  "name": "Automedia",
+  "install": "bash .cursor/install.sh",
+  "ports": [
+    { "name": "loopback/MCP", "port": 47821 },
+    { "name": "chromium CDP", "port": 47822 }
+  ]
+}
