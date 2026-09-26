@@ -106,29 +106,25 @@ export type { FileRead };
 
 export class CompositionStore {
   private readonly tails = new Map<string, Promise<void>>();
-  private readonly active = new Set<string>();
   private readonly leases = new Map<string, CompositionLease>();
 
   constructor(readonly root: string) {}
 
+  // Public mutations acquire the queue once; nested work uses private helpers.
   private async exclusive<T>(id: string, work: () => Promise<T>): Promise<T> {
-    if (this.active.has(id)) return work();
     const tail = this.tails.get(id) ?? Promise.resolve();
     let release!: () => void;
     const next = new Promise<void>((resolve) => {
       release = resolve;
     });
-    this.tails.set(
-      id,
-      tail.then(() => next),
-    );
+    const queued = tail.then(() => next);
+    this.tails.set(id, queued);
     await tail;
-    this.active.add(id);
     try {
       return await work();
     } finally {
-      this.active.delete(id);
       release();
+      if (this.tails.get(id) === queued) this.tails.delete(id);
     }
   }
 
@@ -370,6 +366,10 @@ export class CompositionStore {
   }
 
   async duplicate(id: string): Promise<Composition> {
+    return this.exclusive(id, () => this.duplicateNow(id));
+  }
+
+  private async duplicateNow(id: string): Promise<Composition> {
     const current = await this.get(id);
     const nextId = createId("c");
     const source = this.compositionDir(id);
@@ -468,23 +468,34 @@ export class CompositionStore {
     start = 0,
     requestedLane?: number,
   ): Promise<MediaTrack> {
-    return this.createDocumentTrack(
-      id,
-      "block",
-      "Block",
-      {
-        html: defaultHtml,
-        css: "html, body { margin: 0; }\n",
-        js: "\n",
-      },
-      true,
-      name,
-      start,
-      requestedLane,
+    return this.exclusive(id, () =>
+      this.createDocumentTrack(
+        id,
+        "block",
+        "Block",
+        {
+          html: defaultHtml,
+          css: "html, body { margin: 0; }\n",
+          js: "\n",
+        },
+        true,
+        name,
+        start,
+        requestedLane,
+      ),
     );
   }
 
   async createMusicBlock(
+    id: string,
+    name?: string,
+    start = 0,
+    requestedLane?: number,
+  ): Promise<MediaTrack> {
+    return this.exclusive(id, () => this.createMusicBlockNow(id, name, start, requestedLane));
+  }
+
+  private async createMusicBlockNow(
     id: string,
     name?: string,
     start = 0,
@@ -563,7 +574,7 @@ export class CompositionStore {
       mute: input.mute,
       lane,
     };
-    await this.putTrack(id, track);
+    await this.putTrackNow(id, track);
     return track;
   }
 
@@ -592,6 +603,10 @@ export class CompositionStore {
   }
 
   async remove(id: string): Promise<void> {
+    return this.exclusive(id, () => this.removeNow(id));
+  }
+
+  private async removeNow(id: string): Promise<void> {
     const dir = this.compositionDir(id);
     if (!(await pathExists(dir))) {
       throw new AppError("not_found", `composition ${id} does not exist`);
@@ -646,14 +661,15 @@ export class CompositionStore {
     expectedEtag: string,
   ): Promise<FileRead> {
     await this.get(id);
-    const normalized = relativePath.replaceAll("\\", "/");
+    const root = this.compositionDir(id);
+    const absolute = resolveInside(root, relativePath);
+    const normalized = path.relative(root, absolute).replaceAll("\\", "/");
     if (normalized === "composition.json") {
       throw new AppError("forbidden", "composition.json cannot be written as a loose file");
     }
     if (isManagedMusicRuntimePath(normalized)) {
       throw new AppError("forbidden", "music runtime files are managed and cannot be written");
     }
-    const absolute = resolveInside(this.compositionDir(id), normalized);
     if (await pathExists(absolute)) {
       const current = etagFor(await readBytes(absolute));
       if (current !== expectedEtag) {
@@ -673,15 +689,20 @@ export class CompositionStore {
   }
 
   async deleteFile(id: string, relativePath: string): Promise<void> {
+    return this.exclusive(id, () => this.deleteFileNow(id, relativePath));
+  }
+
+  private async deleteFileNow(id: string, relativePath: string): Promise<void> {
     await this.get(id);
-    const normalized = relativePath.replaceAll("\\", "/");
+    const root = this.compositionDir(id);
+    const absolute = resolveInside(root, relativePath);
+    const normalized = path.relative(root, absolute).replaceAll("\\", "/");
     if (protectedFiles.has(normalized)) {
       throw new AppError("forbidden", `${normalized} cannot be deleted`);
     }
     if (isManagedMusicRuntimePath(normalized)) {
       throw new AppError("forbidden", "music runtime files are managed and cannot be deleted");
     }
-    const absolute = resolveInside(this.compositionDir(id), normalized);
     if (!(await pathExists(absolute))) {
       throw new AppError("not_found", `${normalized} does not exist`);
     }
@@ -699,7 +720,7 @@ export class CompositionStore {
     const composition = await this.get(id);
     const durationSeconds = contentDuration(tracks);
     if (Math.abs(composition.durationSeconds - durationSeconds) < 1e-6) return composition;
-    return this.updateSettings({ compositionId: id, durationSeconds });
+    return this.updateSettingsNow({ compositionId: id, durationSeconds });
   }
 
   async putTrack(id: string, track: MediaTrack): Promise<MediaDocument> {

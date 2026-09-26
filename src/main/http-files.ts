@@ -55,16 +55,20 @@ export async function sendFile(
   const range = request.headers.range;
   if (range) {
     const match = /^bytes=(\d*)-(\d*)$/.exec(range);
-    if (!match) {
-      response.writeHead(416);
+    const rejectRange = () => {
+      response.writeHead(416, { ...extraHeaders, "content-range": `bytes */${info.size}` });
       response.end();
+    };
+    if (!match || (match[1] === "" && match[2] === "")) {
+      rejectRange();
       return;
     }
-    const start = match[1] === "" ? 0 : Number(match[1]);
-    const end = match[2] === "" ? info.size - 1 : Number(match[2]);
-    if (start > end || end >= info.size) {
-      response.writeHead(416);
-      response.end();
+    const suffix = match[1] === "";
+    const start = suffix ? Math.max(0, info.size - Number(match[2])) : Number(match[1]);
+    const end =
+      suffix || match[2] === "" ? info.size - 1 : Math.min(Number(match[2]), info.size - 1);
+    if (start > end || start >= info.size) {
+      rejectRange();
       return;
     }
     response.writeHead(206, {

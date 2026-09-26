@@ -12,7 +12,7 @@ export default defineConfig({
   },
   build: {
     rollupOptions: {
-      external: ["electron", "playwright", /^playwright\//, "yazl", "yauzl"],
+      external: ["electron", "playwright", /^playwright\//],
     },
   },
 });

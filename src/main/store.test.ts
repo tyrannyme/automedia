@@ -1,7 +1,7 @@
 import { appendFile, mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { AppError } from "@shared/errors.ts";
 import { appendActivity } from "./activity.ts";
 import { CompositionStore } from "./store.ts";
@@ -94,6 +94,65 @@ describe("CompositionStore", () => {
     expect(store.claim(created.id, "agent-b").holder).toBe("agent-b");
   });
 
+  it("queues edits arriving after a write has already started", async () => {
+    const store = await tempStore();
+    const created = await store.create();
+    const entered = Promise.withResolvers<void>();
+    const resume = Promise.withResolvers<void>();
+    const get = store.get.bind(store);
+    vi.spyOn(store, "get").mockImplementationOnce(async (id) => {
+      const snapshot = await get(id);
+      entered.resolve();
+      await resume.promise;
+      return snapshot;
+    });
+    const rename = store.updateSettings({ compositionId: created.id, name: "Renamed" });
+    await entered.promise;
+    const resize = store.updateSettings({ compositionId: created.id, width: 1920 });
+    resume.resolve();
+    await Promise.all([rename, resize]);
+    expect(await store.get(created.id)).toMatchObject({ name: "Renamed", width: 1920 });
+  });
+
+  it.each(["block", "music"] as const)(
+    "creates concurrent %s clips without losing or overlapping them",
+    async (kind) => {
+      const store = await tempStore();
+      const created = await store.create();
+      const create =
+        kind === "block" ? store.createBlock.bind(store) : store.createMusicBlock.bind(store);
+      const tracks = await Promise.all([create(created.id), create(created.id)]);
+      const media = await store.getMedia(created.id);
+      expect(media.tracks).toHaveLength(2);
+      expect(tracks.map((track) => track.start)).toEqual([0, 3]);
+      expect(new Set(tracks.map((track) => track.name)).size).toBe(2);
+    },
+  );
+
+  it.each(["./composition.json", "assets/../composition.json", "assets\\..\\composition.json"])(
+    "protects the settings document through the alias %s",
+    async (alias) => {
+      const store = await tempStore();
+      const created = await store.create();
+      const file = await store.readFile(created.id, "composition.json");
+      await expect(
+        store.writeFile(created.id, alias, "utf8", "{}", file.etag),
+      ).rejects.toMatchObject({ code: "forbidden" });
+      await expect(store.deleteFile(created.id, alias)).rejects.toMatchObject({
+        code: "forbidden",
+      });
+    },
+  );
+
+  it("protects generated music files through normalized paths", async () => {
+    const store = await tempStore();
+    const created = await store.create();
+    const music = await store.createMusicBlock(created.id);
+    await expect(
+      store.writeFile(created.id, `./music/${music.asset}/script.js`, "utf8", "bad", ""),
+    ).rejects.toMatchObject({ code: "forbidden" });
+  });
+
   it("rejects a stale file etag", async () => {
     const store = await tempStore();
     const created = await store.create();
@@ -105,6 +164,44 @@ describe("CompositionStore", () => {
     await expect(
       store.writeFile(created.id, script, "utf8", "stale\n", first.etag),
     ).rejects.toMatchObject({ code: "revision_conflict" } satisfies Partial<AppError>);
+  });
+
+  it("accepts only one concurrent edit with the same etag and recovers after a conflict", async () => {
+    const store = await tempStore();
+    const created = await store.create();
+    const file = await store.writeFile(created.id, "notes.txt", "utf8", "original", "");
+    const results = await Promise.allSettled([
+      store.writeFile(created.id, file.path, "utf8", "first edit", file.etag),
+      store.writeFile(created.id, file.path, "utf8", "second edit", file.etag),
+    ]);
+    expect(results[0]?.status).toBe("fulfilled");
+    expect(results[1]).toMatchObject({ status: "rejected", reason: { code: "revision_conflict" } });
+    const current = await store.readFile(created.id, file.path);
+    expect(current.content).toBe("first edit");
+    await expect(
+      store.writeFile(created.id, file.path, "utf8", "retry", current.etag),
+    ).resolves.toMatchObject({ content: "retry" });
+  });
+
+  it("finishes an active edit before moving a composition to trash", async () => {
+    const store = await tempStore();
+    const created = await store.create();
+    const entered = Promise.withResolvers<void>();
+    const resume = Promise.withResolvers<void>();
+    const get = store.get.bind(store);
+    vi.spyOn(store, "get").mockImplementationOnce(async (id) => {
+      const snapshot = await get(id);
+      entered.resolve();
+      await resume.promise;
+      return snapshot;
+    });
+    const edit = store.updateSettings({ compositionId: created.id, name: "Final edit" });
+    await entered.promise;
+    const remove = store.remove(created.id);
+    resume.resolve();
+    await Promise.all([edit, remove]);
+    await expect(store.get(created.id)).rejects.toMatchObject({ code: "not_found" });
+    expect(await store.list()).toEqual([]);
   });
 
   it("refuses to delete composition.json", async () => {
