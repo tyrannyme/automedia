@@ -9,13 +9,8 @@ import {
 } from "./errors.ts";
 
 describe("toErrorObject", () => {
-  it("rewrites spawn ffmpeg ENOENT into a health error", () => {
-    const error = Object.assign(new Error("spawn ffmpeg ENOENT"), { code: "ENOENT" });
-    expect(toErrorObject(error)).toEqual({
-      code: "ffmpeg_unavailable",
-      message:
-        "ffmpeg is not installed or not on PATH. Install ffmpeg (it includes ffprobe) to import media and export video.",
-    });
+  it("reports a plain Error as internal", () => {
+    expect(toErrorObject(new Error("boom"))).toEqual({ code: "internal", message: "boom" });
   });
 
   it("keeps the code and message from AppError", () => {

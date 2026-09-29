@@ -1,0 +1,187 @@
+diff --git a/dist/bundles/mediabunny-server.cjs b/dist/bundles/mediabunny-server.cjs
+index 99392d0dd63c19d968209aa7fd708beeb2821128..faf404ad0f73e54831cbdcdf2cc69ef07528b065 100644
+--- a/dist/bundles/mediabunny-server.cjs
++++ b/dist/bundles/mediabunny-server.cjs
+@@ -3480,8 +3480,15 @@ var MediabunnyServer = (() => {
+     frame.channelLayout = getChannelLayout(sample.numberOfChannels);
+     frame.allocBuffer();
+     assert(frame.data);
++    // Electron's V8 memory cage turns `frame.data` planes into detached copies, so fill them through fromBuffer, which copies into the native planes.
++    const planeSize = sample.allocationSize({ planeIndex: 0 });
++    const planes = Buffer.alloc(planeSize * frame.data.length);
+     for (let i = 0; i < frame.data.length; i++) {
+-      sample.copyTo(frame.data[i], { planeIndex: i });
++      sample.copyTo(planes.subarray(i * planeSize, (i + 1) * planeSize), { planeIndex: i });
++    }
++    const ret = frame.fromBuffer(planes);
++    if (ret < 0) {
++      throw new Error(`Failed to fill audio frame (${ret}).`);
+     }
+   };
+ 
+@@ -3697,11 +3704,10 @@ var MediabunnyServer = (() => {
+           this.dstFrame.allocBuffer();
+           this.nextResamplerPts = this.frame.pts;
+         }
+-        const inputBuffers = this.frame.data;
+-        if (!inputBuffers) {
+-          throw new DOMException("Frame has no data", "EncodingError");
+-        }
+-        await this.resampler.convert(null, 0, inputBuffers, this.frame.nbSamples);
++        // Resample whole frames: under Electron, `frame.data` planes are detached
++        // copies, so buffer-based conversion would read and write stale memory.
++        const inputRet = this.resampler.convertFrame(null, this.frame);
++        NodeAv7.FFmpegError.throwIfError(inputRet, "convertFrame");
+         await this.pullResampledFrames();
+       } else {
+         await this.sendFrameAndReceivePackets(this.frame);
+@@ -3718,7 +3724,10 @@ var MediabunnyServer = (() => {
+         if (available < frameSize) {
+           break;
+         }
+-        await this.resampler.convert(this.dstFrame.data, frameSize, null, 0);
++        NodeAv7.FFmpegError.throwIfError(this.dstFrame.makeWritable(), "makeWritable");
++        this.dstFrame.nbSamples = frameSize;
++        const outputRet = this.resampler.convertFrame(this.dstFrame, null);
++        NodeAv7.FFmpegError.throwIfError(outputRet, "convertFrame");
+         this.dstFrame.pts = this.nextResamplerPts;
+         await this.sendFrameAndReceivePackets(this.dstFrame);
+         this.nextResamplerPts += BigInt(frameSize);
+@@ -3750,7 +3759,10 @@ var MediabunnyServer = (() => {
+       if (this.packetEmitted) {
+         metadata = {};
+       } else {
+-        this.outputTimestampOffset = Math.max(this.firstExpectedTimestamp - timestamp, 0);
++        // AAC's first packets are encoder priming with negative timestamps. Keep them negative so MP4 writes an edit list that trims the priming, as FFmpeg does, instead of shifting all audio late by the priming length.
++        this.outputTimestampOffset = this.codec === "aac"
++            ? this.firstExpectedTimestamp
++            : Math.max(this.firstExpectedTimestamp - timestamp, 0);
+         const codecString = this.config.codec;
+         let description = this.codecContext.extraData ? toUint8Array(this.codecContext.extraData) : void 0;
+         if (this.codec === "aac") {
+diff --git a/dist/bundles/mediabunny-server.mjs b/dist/bundles/mediabunny-server.mjs
+index 20ef9e1601aeaa49488867a545d5839badabd7c2..7211946907f0c1cba9e7e126647a05fdce2fee53 100644
+--- a/dist/bundles/mediabunny-server.mjs
++++ b/dist/bundles/mediabunny-server.mjs
+@@ -3452,8 +3452,15 @@ var copyAudioSampleToAvFrame = (sample, frame) => {
+   frame.channelLayout = getChannelLayout(sample.numberOfChannels);
+   frame.allocBuffer();
+   assert(frame.data);
++  // Electron's V8 memory cage turns `frame.data` planes into detached copies, so fill them through fromBuffer, which copies into the native planes.
++  const planeSize = sample.allocationSize({ planeIndex: 0 });
++  const planes = Buffer.alloc(planeSize * frame.data.length);
+   for (let i = 0; i < frame.data.length; i++) {
+-    sample.copyTo(frame.data[i], { planeIndex: i });
++    sample.copyTo(planes.subarray(i * planeSize, (i + 1) * planeSize), { planeIndex: i });
++  }
++  const ret = frame.fromBuffer(planes);
++  if (ret < 0) {
++    throw new Error(`Failed to fill audio frame (${ret}).`);
+   }
+ };
+ 
+@@ -3673,11 +3680,10 @@ var NodeAvAudioEncoder = class extends CustomAudioEncoder {
+         this.dstFrame.allocBuffer();
+         this.nextResamplerPts = this.frame.pts;
+       }
+-      const inputBuffers = this.frame.data;
+-      if (!inputBuffers) {
+-        throw new DOMException("Frame has no data", "EncodingError");
+-      }
+-      await this.resampler.convert(null, 0, inputBuffers, this.frame.nbSamples);
++      // Resample whole frames: under Electron, `frame.data` planes are detached
++      // copies, so buffer-based conversion would read and write stale memory.
++      const inputRet = this.resampler.convertFrame(null, this.frame);
++      NodeAv7.FFmpegError.throwIfError(inputRet, "convertFrame");
+       await this.pullResampledFrames();
+     } else {
+       await this.sendFrameAndReceivePackets(this.frame);
+@@ -3694,7 +3700,10 @@ var NodeAvAudioEncoder = class extends CustomAudioEncoder {
+       if (available < frameSize) {
+         break;
+       }
+-      await this.resampler.convert(this.dstFrame.data, frameSize, null, 0);
++      NodeAv7.FFmpegError.throwIfError(this.dstFrame.makeWritable(), "makeWritable");
++      this.dstFrame.nbSamples = frameSize;
++      const outputRet = this.resampler.convertFrame(this.dstFrame, null);
++      NodeAv7.FFmpegError.throwIfError(outputRet, "convertFrame");
+       this.dstFrame.pts = this.nextResamplerPts;
+       await this.sendFrameAndReceivePackets(this.dstFrame);
+       this.nextResamplerPts += BigInt(frameSize);
+@@ -3726,7 +3735,10 @@ var NodeAvAudioEncoder = class extends CustomAudioEncoder {
+     if (this.packetEmitted) {
+       metadata = {};
+     } else {
+-      this.outputTimestampOffset = Math.max(this.firstExpectedTimestamp - timestamp, 0);
++      // AAC's first packets are encoder priming with negative timestamps. Keep them negative so MP4 writes an edit list that trims the priming, as FFmpeg does, instead of shifting all audio late by the priming length.
++      this.outputTimestampOffset = this.codec === "aac"
++          ? this.firstExpectedTimestamp
++          : Math.max(this.firstExpectedTimestamp - timestamp, 0);
+       const codecString = this.config.codec;
+       let description = this.codecContext.extraData ? toUint8Array(this.codecContext.extraData) : void 0;
+       if (this.codec === "aac") {
+diff --git a/dist/modules/src/audio-encoder.js b/dist/modules/src/audio-encoder.js
+index 545c37442534f2b364604a97879478a8c4e2224d..b2e31fc3672f803288857a1be88275d2540ddcad 100644
+--- a/dist/modules/src/audio-encoder.js
++++ b/dist/modules/src/audio-encoder.js
+@@ -178,11 +178,10 @@ class NodeAvAudioEncoder extends mediabunny_1.CustomAudioEncoder {
+                 this.dstFrame.allocBuffer();
+                 this.nextResamplerPts = this.frame.pts;
+             }
+-            const inputBuffers = this.frame.data;
+-            if (!inputBuffers) {
+-                throw new DOMException('Frame has no data', 'EncodingError');
+-            }
+-            await this.resampler.convert(null, 0, inputBuffers, this.frame.nbSamples);
++            // Resample whole frames: under Electron, `frame.data` planes are detached
++            // copies, so buffer-based conversion would read and write stale memory.
++            const inputRet = this.resampler.convertFrame(null, this.frame);
++            NodeAv.FFmpegError.throwIfError(inputRet, "convertFrame");
+             await this.pullResampledFrames();
+         }
+         else {
+@@ -200,7 +199,10 @@ class NodeAvAudioEncoder extends mediabunny_1.CustomAudioEncoder {
+             if (available < frameSize) {
+                 break;
+             }
+-            await this.resampler.convert(this.dstFrame.data, frameSize, null, 0);
++            NodeAv.FFmpegError.throwIfError(this.dstFrame.makeWritable(), "makeWritable");
++            this.dstFrame.nbSamples = frameSize;
++            const outputRet = this.resampler.convertFrame(this.dstFrame, null);
++            NodeAv.FFmpegError.throwIfError(outputRet, "convertFrame");
+             this.dstFrame.pts = this.nextResamplerPts;
+             await this.sendFrameAndReceivePackets(this.dstFrame);
+             this.nextResamplerPts += BigInt(frameSize);
+@@ -236,7 +238,10 @@ class NodeAvAudioEncoder extends mediabunny_1.CustomAudioEncoder {
+             // To compensate for any negative timestamp things that FFmpeg might do. It does these for a reason, to
+             // indicate encoder delay, but the notion of this is not yet supported in Mediabunny. Yes, this technically
+             // introduces audio sync drift.
+-            this.outputTimestampOffset = Math.max(this.firstExpectedTimestamp - timestamp, 0);
++            // AAC's first packets are encoder priming with negative timestamps. Keep them negative so MP4 writes an edit list that trims the priming, as FFmpeg does, instead of shifting all audio late by the priming length.
++            this.outputTimestampOffset = this.codec === "aac"
++                ? this.firstExpectedTimestamp
++                : Math.max(this.firstExpectedTimestamp - timestamp, 0);
+             const codecString = this.config.codec;
+             let description = this.codecContext.extraData
+                 ? (0, misc_2.toUint8Array)(this.codecContext.extraData)
+diff --git a/dist/modules/src/audio-sample.js b/dist/modules/src/audio-sample.js
+index 4750196979244af30cacb784def786eab27df877..7b18458eb233408a39e6fb8e4114bf2ab1cd648f 100644
+--- a/dist/modules/src/audio-sample.js
++++ b/dist/modules/src/audio-sample.js
+@@ -115,8 +115,15 @@ const copyAudioSampleToAvFrame = (sample, frame) => {
+     frame.channelLayout = (0, misc_1.getChannelLayout)(sample.numberOfChannels);
+     frame.allocBuffer();
+     (0, misc_2.assert)(frame.data);
++    // Electron's V8 memory cage turns `frame.data` planes into detached copies, so fill them through fromBuffer, which copies into the native planes.
++    const planeSize = sample.allocationSize({ planeIndex: 0 });
++    const planes = Buffer.alloc(planeSize * frame.data.length);
+     for (let i = 0; i < frame.data.length; i++) {
+-        sample.copyTo(frame.data[i], { planeIndex: i });
++        sample.copyTo(planes.subarray(i * planeSize, (i + 1) * planeSize), { planeIndex: i });
++    }
++    const ret = frame.fromBuffer(planes);
++    if (ret < 0) {
++        throw new Error(`Failed to fill audio frame (${ret}).`);
+     }
+ };
+ exports.copyAudioSampleToAvFrame = copyAudioSampleToAvFrame;

@@ -5,15 +5,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import { AppError } from "@shared/errors.ts";
 import type { Composition } from "@shared/schemas.ts";
 import { CompositionStore } from "./store.ts";
-import { videoScaleFilter } from "./export-capture.ts";
-import {
-  audioCodecArgs,
-  audioFilterGraph,
-  atempoChain,
-  ExportQueue,
-  listExports,
-  type ExportJob,
-} from "./export.ts";
+import { frameDelays, videoEncoding } from "./export-capture.ts";
+import { ExportQueue, listExports, type ExportJob } from "./export.ts";
 
 const dirs: string[] = [];
 
@@ -44,8 +37,20 @@ async function resize(
 }
 
 describe("ExportQueue", () => {
-  it("converts full-range Chromium JPEG frames to limited-range video", () => {
-    expect(videoScaleFilter(1920, 1080)).toBe("scale=1920:1080:in_range=pc:out_range=tv");
+  it("keeps GIF and WebP frame delays on the composition clock", () => {
+    const gif = frameDelays(30, 30, 10);
+    expect(new Set(gif)).toEqual(new Set([30, 40]));
+    expect(gif.reduce((sum, delay) => sum + delay, 0)).toBe(1000);
+    expect(frameDelays(3, 30, 1)).toEqual([33, 34, 33]);
+    expect(frameDelays(4, 25, 10)).toEqual([40, 40, 40, 40]);
+  });
+
+  it("maps quality to H.264 bitrate and VP9 constant quality", () => {
+    expect(videoEncoding("mp4", 80).codec).toBe("avc");
+    expect(videoEncoding("webm", 80).codec).toBe("vp9");
+    expect(videoEncoding("webm", 1).rate).toEqual({ quantizer: 40 });
+    expect(videoEncoding("webm", 100).rate).toEqual({ quantizer: 15 });
+    expect(videoEncoding("mp4", 80).rate).toEqual({ bitrate: 4_250_000 });
   });
 
   it.each([
@@ -88,81 +93,6 @@ describe("ExportQueue", () => {
     await expect(
       queue.start({ compositionId: composition.id, ...options } as never),
     ).rejects.toMatchObject({ code: "invalid_export", message });
-  });
-
-  it("builds atempo chains within ffmpeg's supported range", () => {
-    expect(atempoChain(4).match(/atempo=2/g)).toHaveLength(2);
-    expect(atempoChain(0.25)).toContain("atempo=0.5");
-  });
-
-  it("delays and pads every audible track in the audio graph", () => {
-    // SAFETY: audioFilterGraph only reads durationSeconds for this focused unit test.
-    const composition = {
-      durationSeconds: 3,
-    } as Composition;
-    const graph = audioFilterGraph(composition, [
-      {
-        id: "track",
-        kind: "audio",
-        asset: "tone.ogg",
-        start: 0.5,
-        duration: 2,
-        trimStart: 0,
-        rate: 1,
-        volume: 1,
-        mute: false,
-        lane: 0,
-      },
-    ]);
-    expect(graph).toContain("adelay=500|500");
-    expect(graph).toContain("apad");
-  });
-
-  it("pads a music-only capture to the composition duration", () => {
-    // SAFETY: audioFilterGraph only reads durationSeconds for this focused unit test.
-    const composition = { durationSeconds: 4 } as Composition;
-    const graph = audioFilterGraph(composition, [], 1);
-    expect(graph).toContain("[1:a]apad=whole_dur=4");
-    expect(graph).toContain("atrim=duration=4[aout]");
-  });
-
-  it("mixes already-timed music captures with asset audio", () => {
-    // SAFETY: audioFilterGraph only reads durationSeconds for this focused unit test.
-    const composition = { durationSeconds: 3 } as Composition;
-    const graph = audioFilterGraph(
-      composition,
-      [
-        {
-          id: "track",
-          kind: "audio",
-          asset: "tone.ogg",
-          start: 0,
-          duration: 2,
-          trimStart: 0,
-          rate: 1,
-          volume: 1,
-          mute: false,
-          lane: 0,
-        },
-      ],
-      1,
-    );
-    expect(graph).toContain("[2:a]apad");
-    expect(graph).toContain("amix=inputs=2:duration=first[aout]");
-  });
-
-  it("numbers audio-only graphs from input zero", () => {
-    // SAFETY: audioFilterGraph only reads durationSeconds for this focused unit test.
-    const composition = { durationSeconds: 4 } as Composition;
-    const graph = audioFilterGraph(composition, [], 1, 0);
-    expect(graph).toContain("[0:a]apad=whole_dur=4");
-  });
-
-  it("picks audio codecs for mp3, wav, and ogg", () => {
-    expect(audioCodecArgs("mp3", 80)[1]).toBe("libmp3lame");
-    expect(Number(audioCodecArgs("mp3", 80)[3])).toBeGreaterThan(200_000);
-    expect(audioCodecArgs("wav")).toEqual(["-c:a", "pcm_s16le"]);
-    expect(audioCodecArgs("ogg", 80)).toContain("libvorbis");
   });
 
   it("rejects audio export when nothing is audible", async () => {

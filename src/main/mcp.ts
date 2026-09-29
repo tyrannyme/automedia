@@ -20,7 +20,6 @@ import {
 } from "@shared/schemas.ts";
 import { app } from "electron";
 import { getRuntimeTypes, runtimeCatalog } from "./runtime.ts";
-import { ffmpegHealth } from "./ffmpeg.ts";
 import { probeFile } from "./probe.ts";
 import path from "node:path";
 import type { EventBus } from "./events.ts";
@@ -151,7 +150,7 @@ export function createMcpServer(options: {
     "workspace_status",
     {
       description:
-        "See ffmpeg health, queued exports, and composition leases before starting parallel work. Claim a composition if you will write.",
+        "See queued exports and composition leases before starting parallel work. Claim a composition if you will write.",
       inputSchema: z.object({}),
     },
     withTool(async () => {
@@ -169,7 +168,6 @@ export function createMcpServer(options: {
         }),
       );
       return {
-        ffmpeg: await ffmpegHealth(),
         exports: queue.listJobs(),
         compositions: activity,
       };
@@ -426,7 +424,8 @@ export function createMcpServer(options: {
   server.registerTool(
     "probe_media",
     {
-      description: "Run ffprobe on an asset under assets/ before putting a track.",
+      description:
+        "Probe an asset under assets/ for its container, streams, codecs, duration, size, and frame rate before putting a track.",
       inputSchema: z.object({ compositionId: zId, asset: z.string() }),
     },
     withTool(async ({ compositionId, asset }: { compositionId: string; asset: string }) => {
@@ -595,15 +594,6 @@ export function createMcpServer(options: {
   );
 
   server.registerTool(
-    "get_health",
-    {
-      description: "Check whether ffmpeg and ffprobe are installed and on PATH.",
-      inputSchema: z.object({}),
-    },
-    withTool(async () => ffmpegHealth()),
-  );
-
-  server.registerTool(
     "get_runtime_catalog",
     {
       description: "Pinned composition-runtime library versions served through the import map.",
@@ -640,7 +630,7 @@ export function createMcpServer(options: {
     "start_export",
     {
       description:
-        "Queue a PNG, GIF, WebP, MP4, WebM, MP3, WAV, or OGG export. Validate must pass. Jobs wait in line; one runs at a time. A successful job includes contentUrl. Everything except PNG needs a healthy ffmpeg. Audio formats need an unmuted audio, video, or music track.",
+        "Queue a PNG, GIF, WebP, MP4, WebM, MP3, WAV, or OGG export. Validate must pass. Jobs wait in line; one runs at a time. A successful job includes contentUrl. Audio formats need an unmuted audio, video, or music track.",
       inputSchema: z.object({
         compositionId: zId,
         format: z.enum(exportFormats),

@@ -458,7 +458,13 @@ export const controllerSource = String.raw`
       await new Promise((resolve) => window.setTimeout(resolve, 16));
     }
     await new Promise((resolve) => window.setTimeout(resolve, 0));
-    await new Promise((resolve) => window.requestAnimationFrame(() => resolve()));
+    // Wait for a paint, but a block that is not active yet is display: none
+    // and never gets animation frames. Without the timer its ready() hangs
+    // and the compositor stalls on its 5 s nested-runtime timeout.
+    await new Promise((resolve) => {
+      window.requestAnimationFrame(() => resolve());
+      window.setTimeout(resolve, 100);
+    });
     await new Promise((resolve) => window.setTimeout(resolve, 0));
   }
 

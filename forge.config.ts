@@ -20,17 +20,24 @@ const runtimePackages = [
   "vgpu",
   "@vgpu/core",
   "@vgpu/wgsl",
+  "node-av",
+  "wasm-webp",
 ];
+
+/** node-av's prebuilt native addon ships in a per-platform package. */
+function nodeAvBinaryPackage(platform: string, arch: string): string {
+  return `@seydx/node-av-${platform}-${arch}${platform === "win32" ? "-msvc" : ""}`;
+}
 
 function copyRuntimePackages(
   buildPath: string,
   _electronVersion: string,
-  _platform: string,
-  _arch: string,
+  platform: string,
+  arch: string,
   callback: (error?: Error | null) => void,
 ): void {
   void Promise.all(
-    runtimePackages.map((name) =>
+    [...runtimePackages, nodeAvBinaryPackage(platform, arch)].map((name) =>
       cp(
         path.join(process.cwd(), "node_modules", name),
         path.join(buildPath, "node_modules", name),
@@ -45,7 +52,7 @@ const config: ForgeConfig = {
     extraResource: ["fixtures", "assets/icon.png"],
     asar: {
       unpack:
-        "{.vite/build/main.js,**/node_modules/{playwright,playwright-core,three,motion,motion-dom,motion-utils,framer-motion,vgpu,@tailwindcss,@strudel,@vgpu}/**}",
+        "{.vite/build/main.js,**/node_modules/{playwright,playwright-core,three,motion,motion-dom,motion-utils,framer-motion,vgpu,@tailwindcss,@strudel,@vgpu,node-av,@seydx,wasm-webp}/**}",
     },
     executableName: "automedia",
     icon: "assets/icon",

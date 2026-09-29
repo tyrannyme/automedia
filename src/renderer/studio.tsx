@@ -57,7 +57,6 @@ export function StudioPage() {
   const exportJob = useStudioStore((state) => state.exportJob);
   const exportJobs = useStudioStore((state) => state.exportJobs);
   const exportFiles = useStudioStore((state) => state.exports);
-  const ffmpegHealth = useStudioStore((state) => state.ffmpegHealth);
   const runtimeCatalog = useStudioStore((state) => state.runtimeCatalog);
   const lastExportFormat = useStudioStore((state) => state.lastExportFormat);
   const loading = useStudioStore((state) => state.loading);
@@ -252,7 +251,6 @@ export function StudioPage() {
       }));
       setExportMessage(null);
     } catch (error) {
-      void useStudioStore.getState().refreshHealth();
       setExportMessage(error instanceof Error ? error.message : "Export failed");
     }
   };
@@ -355,7 +353,6 @@ export function StudioPage() {
               : null
           }
           exportJob={exportJob}
-          ffmpegHealth={ffmpegHealth}
           onDoneEditing={() => setMode("preview")}
           onExport={() => setExportOpen(true)}
         />
@@ -559,7 +556,6 @@ export function StudioPage() {
             composition !== null && (composition.width % 2 !== 0 || composition.height % 2 !== 0)
           }
           lastFormat={lastExportFormat}
-          ffmpegHealth={ffmpegHealth}
           errorMessage={exportMessage}
           onStart={(input) => void startExport(input)}
           onCancel={() => void cancelExport()}

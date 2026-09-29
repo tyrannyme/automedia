@@ -1,5 +1,5 @@
 import type { ExportFormat } from "@shared/schemas.ts";
-import { exportNeedsFfmpeg, isAudioExportFormat, isVideoExportFormat } from "@shared/media.ts";
+import { isAudioExportFormat, isVideoExportFormat } from "@shared/media.ts";
 
 export const exportFormatGroups = [
   { id: "video", label: "Video", formats: ["mp4", "webm"] },
@@ -17,11 +17,7 @@ export function exportFormatLabel(format: ExportFormat): string {
   return format.toUpperCase();
 }
 
-export function exportFormatDisabled(
-  format: ExportFormat,
-  options: { oddSize: boolean; ffmpegReady: boolean },
-): boolean {
-  if (!options.ffmpegReady && exportNeedsFfmpeg(format)) return true;
+export function exportFormatDisabled(format: ExportFormat, options: { oddSize: boolean }): boolean {
   if (options.oddSize && isVideoExportFormat(format)) return true;
   return false;
 }

@@ -1,6 +1,5 @@
 import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
-import { spawnSync } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -21,16 +20,8 @@ declare global {
   var automedia: AutomediaRuntime;
 }
 
-const missing = [
-  ...(commandExists("ffmpeg") ? [] : ["ffmpeg"]),
-  ...(commandExists("ffprobe") ? [] : ["ffprobe"]),
-  ...(existsSync(chromium.executablePath()) ? [] : ["current Chromium"]),
-];
+const missing = existsSync(chromium.executablePath()) ? [] : ["current Chromium"];
 const prerequisiteMessage = `missing ${missing.join(", ")}`;
-
-function commandExists(command: string): boolean {
-  return spawnSync("sh", ["-lc", `command -v ${command}`], { stdio: "ignore" }).status === 0;
-}
 
 type TestContext = {
   root: string;
@@ -80,6 +71,15 @@ async function exportFile(
     result.probe = await probeFile(filePath);
   }
   return result;
+}
+
+/** First column on the middle row where the css-clock square is painted. */
+function squareLeftEdge(rgba: Buffer): number {
+  for (let x = 0; x < 640; x += 1) {
+    const [red, green] = pixel(rgba, 640, x, 180);
+    if (red > 200 && green < 150) return x;
+  }
+  return -1;
 }
 
 function parseCssRgb(color: string): [number, number, number] {
@@ -641,6 +641,57 @@ runtimeDescribe("composition examples runtime proofs", () => {
     expect(pixel(motion0, 640, 40, 180)[1]).toBeGreaterThan(150);
     expect(pixel(motion1, 640, 320, 180)[1]).toBeGreaterThan(150);
     expect(pixel(motion1, 640, 40, 180)[1]).toBeLessThan(80);
+  }, 180_000);
+
+  it("gets ready promptly while a block is hidden at time zero", async () => {
+    const composition = await write("media-pair");
+    const browser = await chromium.launch({
+      executablePath: chromium.executablePath(),
+      handleSIGINT: false,
+      handleSIGTERM: false,
+    });
+    try {
+      const page = await browser.newPage({
+        viewport: { width: composition.width, height: composition.height },
+      });
+      // Electron's Chromium runs no animation frames for a display: none
+      // iframe; headless Chromium still does. Reproduce Electron here.
+      await page.addInitScript({
+        content: `if (window.frameElement?.classList.contains("block-frame")) {
+          window.requestAnimationFrame = () => 0;
+        }`,
+      });
+      await page.goto(`${context.server.url}/compositions/${composition.id}/content/index.html`, {
+        waitUntil: "load",
+      });
+      const readyMs = await page.evaluate(async () => {
+        const started = performance.now();
+        await globalThis.automedia.ready();
+        return performance.now() - started;
+      });
+      // Readiness used to wait out the 5 s nested-runtime timeout here, which
+      // delayed the editor's first Play.
+      const blockHidden = await page.evaluate(
+        `[...document.querySelectorAll(".block-frame")].some((frame) => getComputedStyle(frame).display === "none")`,
+      );
+      expect(blockHidden).toBe(true);
+      expect(readyMs).toBeLessThan(1500);
+    } finally {
+      await browser.close();
+    }
+  }, 60_000);
+
+  it("keeps encoded video frames on the composition clock", async () => {
+    const css = await write("css-clock");
+    const still = await decodeRgba((await exportFile(css, "png", { timeSeconds: 1 })).filePath);
+    const expected = squareLeftEdge(still);
+    expect(expected).toBeGreaterThan(0);
+    for (const format of ["mp4", "webm"] as const) {
+      const video = (await exportFile(css, format, { quality: 80 })).filePath;
+      // The square moves about 9 px per frame, so one frame of lag fails this.
+      const actual = squareLeftEdge(await decodeRgba(video, 1 + 0.5 / css.fps));
+      expect(Math.abs(actual - expected), format).toBeLessThanOrEqual(2);
+    }
   }, 180_000);
 
   it("renders a deterministic vGPU shader through validation and export", async () => {

@@ -3,12 +3,10 @@ import { rename } from "node:fs/promises";
 import { AppError } from "@shared/errors.ts";
 import {
   exportExpectsAudio,
-  exportNeedsFfmpeg,
   exportNeedsQuality,
   isAudioExportFormat,
   isVideoExportFormat,
 } from "@shared/media.ts";
-import { ffmpegHealth, missingBinaryError } from "./ffmpeg.ts";
 import type { ExportFormat, StartExportInput } from "@shared/schemas.ts";
 import { createId, ensureDir, pathExists, removeFile } from "./fs.ts";
 import { captureAudio, capturePng, captureStillSequence, captureVideo } from "./export-capture.ts";
@@ -89,11 +87,6 @@ export class ExportQueue {
         "invalid_export",
         "audio export needs an unmuted audio, video, or music track",
       );
-    }
-    if (exportNeedsFfmpeg(input.format)) {
-      const health = await ffmpegHealth();
-      if (!health.ffmpeg) throw missingBinaryError("ffmpeg");
-      if (!health.ffprobe) throw missingBinaryError("ffprobe");
     }
     const validation = await validateComposition(composition, media, this.loopbackUrl);
     if (!validation.ok) {
@@ -275,5 +268,4 @@ export class ExportQueue {
   }
 }
 
-export { audioCodecArgs, audioFilterGraph, atempoChain } from "./export-audio.ts";
 export { exportFileExists, listExports, verifyAudio, verifyVideo } from "./export-verify.ts";

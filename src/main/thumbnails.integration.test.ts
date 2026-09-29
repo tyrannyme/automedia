@@ -1,6 +1,5 @@
 import { existsSync } from "node:fs";
 import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
-import { spawnSync } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -10,20 +9,12 @@ import { ExportQueue } from "./export.ts";
 import { findFreePort } from "./free-port.ts";
 import { startLoopbackServer, type LoopbackServer } from "./http.ts";
 import { createMcpServer } from "./mcp.ts";
-import { probeFile } from "./probe.ts";
-import { decodeRgba, pixel } from "./rgba.ts";
+import { decodePng } from "./png.ts";
+import { pixel } from "./rgba.ts";
 import { thumbnailDimensions, thumbnailPath, ThumbnailService } from "./thumbnails.ts";
 import { CompositionStore } from "./store.ts";
 
-function commandExists(command: string): boolean {
-  return spawnSync("sh", ["-lc", `command -v ${command}`], { stdio: "ignore" }).status === 0;
-}
-
-const missing = [
-  ...(commandExists("ffmpeg") ? [] : ["ffmpeg"]),
-  ...(commandExists("ffprobe") ? [] : ["ffprobe"]),
-  ...(existsSync(chromium.executablePath()) ? [] : ["Playwright Chromium"]),
-];
+const missing = existsSync(chromium.executablePath()) ? [] : ["Playwright Chromium"];
 const prerequisiteMessage = missing.length > 0 ? `missing ${missing.join(", ")}` : "";
 
 const integration = describe.skipIf(missing.length > 0);
@@ -159,15 +150,10 @@ integration("composition thumbnails", () => {
     await waitForThumbnail(output, ready);
 
     const expected = thumbnailDimensions(composition);
-    const probe = await probeFile(output);
-    expect(probe.formatName).toContain("png");
-    expect(probe.streams[0]).toMatchObject({
-      codecName: "png",
-      width: expected.width,
-      height: expected.height,
-    });
+    const image = decodePng(await readFile(output));
+    expect(image).toMatchObject({ width: expected.width, height: expected.height });
 
-    const rgba = await decodeRgba(output);
+    const rgba = Buffer.from(image.data);
     expect(rgba.byteLength).toBe(expected.width * expected.height * 4);
     const midpoint = pixel(
       rgba,
@@ -191,10 +177,7 @@ integration("composition thumbnails", () => {
 });
 
 describe("composition thumbnail prerequisites", () => {
-  it.skipIf(missing.length > 0)(
-    prerequisiteMessage || "ffmpeg, ffprobe, and Playwright Chromium are available",
-    () => {
-      expect(missing).toEqual([]);
-    },
-  );
+  it.skipIf(missing.length > 0)(prerequisiteMessage || "Playwright Chromium is available", () => {
+    expect(missing).toEqual([]);
+  });
 });

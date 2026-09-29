@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react";
 import type { ExportJob } from "../../main/export.ts";
-import type { FfmpegHealth } from "@shared/ffmpeg.ts";
 import { exportNeedsQuality, isVideoExportFormat } from "@shared/media.ts";
 import type { ExportFormat } from "@shared/schemas.ts";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import {
   Dialog,
@@ -38,7 +36,6 @@ type ExportDialogProps = {
   jobs?: ExportJob[];
   oddSize: boolean;
   lastFormat: ExportFormat;
-  ffmpegHealth?: FfmpegHealth | null;
   errorMessage: string | null;
   onStart: (input: { format: ExportFormat; quality?: number; timeSeconds?: number }) => void;
   onCancel: () => void;
@@ -54,7 +51,6 @@ export function ExportDialog({
   jobs = [],
   oddSize,
   lastFormat,
-  ffmpegHealth = null,
   errorMessage,
   onStart,
   onCancel,
@@ -66,7 +62,6 @@ export function ExportDialog({
   const [format, setFormat] = useState<ExportFormat>(lastFormat);
   const [quality, setQuality] = useState(80);
   const [followId, setFollowId] = useState<string | null>(null);
-  const ffmpegReady = !ffmpegHealth || (ffmpegHealth.ffmpeg && ffmpegHealth.ffprobe);
   const view = exportDialogView(job, followId);
   const waiting = jobs.filter((item) => exportIsRunning(item) && item.id !== job?.id).length;
 
@@ -83,13 +78,11 @@ export function ExportDialog({
     if (!open || view !== "setup") return;
     let next = lastFormat;
     if (oddSize && isVideoExportFormat(next)) next = "png";
-    if (!ffmpegReady && next !== "png") next = "png";
     setFormat(next);
-  }, [ffmpegReady, lastFormat, oddSize, open, view]);
+  }, [lastFormat, oddSize, open, view]);
 
   const needsQuality = exportNeedsQuality(format);
   const videoBlocked = oddSize && isVideoExportFormat(format);
-  const encoderBlocked = format !== "png" && !ffmpegReady;
   const progress = exportProgressPercent(job);
   const helper = exportFormatHelper(format);
 
@@ -132,7 +125,7 @@ export function ExportDialog({
                           key={item}
                           value={item}
                           className="min-w-0 flex-1"
-                          disabled={exportFormatDisabled(item, { oddSize, ffmpegReady })}
+                          disabled={exportFormatDisabled(item, { oddSize })}
                         >
                           {exportFormatLabel(item)}
                         </ToggleGroupItem>
@@ -171,14 +164,6 @@ export function ExportDialog({
                 <p className="font-mono text-sm text-muted-foreground">
                   Still from {playheadSeconds.toFixed(2)}s
                 </p>
-              )}
-              {ffmpegHealth && !ffmpegReady && (
-                <Alert variant="destructive">
-                  <AlertTitle>ffmpeg is not available</AlertTitle>
-                  <AlertDescription>
-                    Install ffmpeg and ffprobe, then restart Automedia. PNG stills still work.
-                  </AlertDescription>
-                </Alert>
               )}
               {errorMessage && <p className="text-sm text-destructive">{errorMessage}</p>}
             </div>
@@ -228,7 +213,7 @@ export function ExportDialog({
                 }
                 onStart({ format });
               }}
-              disabled={videoBlocked || encoderBlocked}
+              disabled={videoBlocked}
             >
               Start export
             </Button>

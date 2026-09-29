@@ -1,6 +1,5 @@
 import { existsSync } from "node:fs";
 import { readFile, rm, mkdtemp } from "node:fs/promises";
-import { spawnSync } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -37,15 +36,7 @@ type McpCallParams = {
 
 let requestId = 0;
 
-function hasBinary(binary: string): boolean {
-  return spawnSync(binary, ["-version"], { stdio: "ignore" }).status === 0;
-}
-
-const missing = [
-  ...(hasBinary("ffmpeg") ? [] : ["ffmpeg"]),
-  ...(hasBinary("ffprobe") ? [] : ["ffprobe"]),
-  ...(existsSync(chromium.executablePath()) ? [] : ["Playwright Chromium"]),
-];
+const missing = existsSync(chromium.executablePath()) ? [] : ["Playwright Chromium"];
 const prerequisiteMessage = missing.length > 0 ? `missing ${missing.join(", ")}` : "";
 
 function parseJsonRpcResponse(raw: string, contentType: string | null): JsonRpcResponse {
@@ -179,9 +170,8 @@ afterEach(async () => {
 });
 
 describe("agent loop integration prerequisites", () => {
-  it.skipIf(missing.length > 0)(
-    prerequisiteMessage || "ffmpeg, ffprobe, and Playwright Chromium are available",
-    () => expect(missing).toEqual([]),
+  it.skipIf(missing.length > 0)(prerequisiteMessage || "Playwright Chromium is available", () =>
+    expect(missing).toEqual([]),
   );
 });
 

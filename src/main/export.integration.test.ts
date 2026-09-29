@@ -1,4 +1,3 @@
-import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
@@ -11,24 +10,13 @@ import { startLoopbackStack } from "./loopback-stack.ts";
 import { CompositionStore } from "./store.ts";
 import { writeExample } from "./examples/index.ts";
 
-function hasBinary(binary: string): boolean {
-  return spawnSync("sh", ["-lc", `command -v ${binary}`], { stdio: "ignore" }).status === 0;
-}
-
-const missing = [
-  ...(hasBinary("ffmpeg") ? [] : ["ffmpeg"]),
-  ...(hasBinary("ffprobe") ? [] : ["ffprobe"]),
-  ...(existsSync(chromium.executablePath()) ? [] : ["Playwright Chromium"]),
-];
+const missing = existsSync(chromium.executablePath()) ? [] : ["Playwright Chromium"];
 const prerequisiteMessage = missing.length > 0 ? `missing ${missing.join(", ")}` : "";
 
 describe("export integration prerequisites", () => {
-  it.skipIf(missing.length > 0)(
-    prerequisiteMessage || "ffmpeg, ffprobe, and Playwright Chromium are available",
-    () => {
-      expect(missing).toEqual([]);
-    },
-  );
+  it.skipIf(missing.length > 0)(prerequisiteMessage || "Playwright Chromium is available", () => {
+    expect(missing).toEqual([]);
+  });
 });
 
 const integration = describe.skipIf(missing.length > 0);
