@@ -1,34 +1,9 @@
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
-import * as v from "valibot";
-import { AppError, mapMissingBinaryError } from "@shared/errors.ts";
-
-const execFileAsync = promisify(execFile);
-
-const codecTypeSchema = v.picklist(["audio", "video", "subtitle", "data", "attachment"]);
-
-const ffprobeStreamSchema = v.object({
-  codec_type: v.optional(v.string()),
-  codec_name: v.optional(v.string()),
-  duration: v.optional(v.union([v.string(), v.number()])),
-  width: v.optional(v.union([v.string(), v.number()])),
-  height: v.optional(v.union([v.string(), v.number()])),
-  r_frame_rate: v.optional(v.union([v.string(), v.number()])),
-  avg_frame_rate: v.optional(v.union([v.string(), v.number()])),
-});
-
-const ffprobeJsonSchema = v.object({
-  format: v.optional(
-    v.object({
-      format_name: v.optional(v.string()),
-      duration: v.optional(v.union([v.string(), v.number()])),
-    }),
-  ),
-  streams: v.optional(v.array(ffprobeStreamSchema)),
-});
+import { AppError } from "@shared/errors.ts";
+import { ALL_FORMATS, FilePathSource, Input, type InputTrack } from "./mediabunny.ts";
 
 export type MediaStream = {
-  codecType: v.InferOutput<typeof codecTypeSchema>;
+  codecType: "audio" | "video" | "subtitle";
+  /** Mediabunny codec id, such as `avc`, `vp9`, `aac`, `opus`, or `pcm-s16`. */
   codecName: string;
   durationSeconds: number;
   width?: number;
@@ -37,79 +12,41 @@ export type MediaStream = {
 };
 
 export type ProbeResult = {
+  /** Mediabunny container name, such as `MP4`, `WebM`, `Ogg`, or `WAVE`. */
   formatName: string;
   durationSeconds: number;
   streams: MediaStream[];
 };
 
 export async function probeFile(filePath: string): Promise<ProbeResult> {
-  let stdout: string;
+  using input = new Input({ source: new FilePathSource(filePath), formats: ALL_FORMATS });
   try {
-    const result = await execFileAsync(
-      "ffprobe",
-      ["-v", "error", "-show_streams", "-show_format", "-print_format", "json", filePath],
-      { maxBuffer: 8 * 1024 * 1024 },
-    );
-    stdout = result.stdout;
+    const format = await input.getFormat();
+    const tracks = await input.getTracks();
+    const streams = await Promise.all(tracks.map(probeTrack));
+    const durationSeconds = tracks.length > 0 ? await input.computeDuration() : 0;
+    return { formatName: format.name, durationSeconds, streams };
   } catch (error) {
-    const missing = mapMissingBinaryError(error);
-    if (missing) throw missing;
-    const message = error instanceof Error ? error.message : "ffprobe failed";
-    throw new AppError("probe_failed", message);
+    throw new AppError(
+      "probe_failed",
+      error instanceof Error && error.message.length > 0 ? error.message : "media probe failed",
+    );
   }
+}
 
-  const parsed = v.parse(ffprobeJsonSchema, JSON.parse(stdout));
-  const formatDuration = Number(parsed.format?.duration ?? 0);
-  const streams = (parsed.streams ?? []).map((stream) => {
-    const codecType = v.is(codecTypeSchema, stream.codec_type) ? stream.codec_type : "data";
-    const durationSeconds = Number(stream.duration ?? formatDuration);
-    const width = finiteNumber(stream.width);
-    const height = finiteNumber(stream.height);
-    const fps = parseFrameRate(stream.r_frame_rate, stream.avg_frame_rate);
-    const result: MediaStream = {
-      codecType,
-      codecName: stream.codec_name ?? "",
-      durationSeconds: Number.isFinite(durationSeconds) ? durationSeconds : formatDuration,
-    };
-    if (width !== undefined) {
-      result.width = width;
-    }
-    if (height !== undefined) {
-      result.height = height;
-    }
-    if (fps !== undefined) {
-      result.fps = fps;
-    }
-    return result;
-  });
-
-  return {
-    formatName: parsed.format?.format_name ?? "",
-    durationSeconds: Number.isFinite(formatDuration) ? formatDuration : 0,
-    streams,
+async function probeTrack(track: InputTrack): Promise<MediaStream> {
+  const stream: MediaStream = {
+    codecType: track.type,
+    codecName: track.codec ?? "",
+    durationSeconds: await track.computeDuration(),
   };
-}
-
-function finiteNumber(value: string | number | undefined): number | undefined {
-  if (value === undefined) {
-    return undefined;
+  if (track.isVideoTrack()) {
+    stream.width = track.displayWidth;
+    stream.height = track.displayHeight;
+    const { bestGuessFrameRate } = await track.computeFrameRateMetrics();
+    if (Number.isFinite(bestGuessFrameRate) && bestGuessFrameRate > 0) {
+      stream.fps = bestGuessFrameRate;
+    }
   }
-  const number = Number(value);
-  return Number.isFinite(number) ? number : undefined;
-}
-
-export function parseFrameRate(
-  rFrameRate: string | number | undefined,
-  avgFrameRate: string | number | undefined,
-): number | undefined {
-  return parseRate(rFrameRate) ?? parseRate(avgFrameRate);
-}
-
-function parseRate(value: string | number | undefined): number | undefined {
-  if (value === undefined || value === "0/0") {
-    return undefined;
-  }
-  const [numerator, denominator] = String(value).split("/").map(Number);
-  const fps = denominator === undefined ? numerator : numerator / denominator;
-  return Number.isFinite(fps) && fps > 0 ? fps : undefined;
+  return stream;
 }

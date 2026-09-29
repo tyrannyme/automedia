@@ -12,7 +12,17 @@ export default defineConfig({
   },
   build: {
     rollupOptions: {
-      external: ["electron", "playwright", /^playwright\//],
+      // Mediabunny stays bundled so its encoder registry is one instance.
+      // node-av loads a native addon and wasm-webp reads its .wasm beside
+      // itself, so both load from node_modules at runtime.
+      external: [
+        "electron",
+        "playwright",
+        /^playwright\//,
+        "node-av",
+        /^node-av\//,
+        /^wasm-webp\//,
+      ],
     },
   },
 });

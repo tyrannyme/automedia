@@ -4,7 +4,6 @@ import type { ExportJob } from "../main/export.ts";
 import type { ProbeResult } from "../main/probe.ts";
 import type { ValidationReport } from "../main/validate.ts";
 import type { RuntimeCatalog } from "../main/runtime.ts";
-import type { FfmpegHealth } from "./ffmpeg.ts";
 import type { ExampleId } from "../main/examples/index.ts";
 import type { ImportProjectResult } from "./project-archive.ts";
 import type {
@@ -26,7 +25,6 @@ export const ipcChannels = {
     getInfo: "app.getInfo",
     getSettings: "app.getSettings",
     setSettings: "app.setSettings",
-    getHealth: "app.getHealth",
   },
   compositions: {
     list: "compositions.list",
@@ -114,7 +112,6 @@ export type StudioApi = {
     getInfo: () => Promise<AppInfo>;
     getSettings: () => Promise<AppSettings>;
     setSettings: (settings: AppSettings) => Promise<AppSettings>;
-    getHealth: () => Promise<FfmpegHealth>;
   };
   compositions: {
     list: () => Promise<Composition[]>;

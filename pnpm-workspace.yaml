@@ -10,5 +10,8 @@ allowBuilds:
   electron-winstaller: false
   "@vgpu/adapter-node": false
   webgpu: false
+  node-av: false
 overrides:
   "@electron/rebuild": "4.2.0"
+patchedDependencies:
+  "@mediabunny/server@1.60.0": patches/@mediabunny__server@1.60.0.patch

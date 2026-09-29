@@ -1,7 +1,6 @@
 import * as v from "valibot";
-import { AppError } from "@shared/errors.ts";
+import { AppError, throwIfCanceled } from "@shared/errors.ts";
 import type { Page } from "playwright";
-import { throwIfCanceled } from "./export-ffmpeg.ts";
 import { seekInjectedRuntime, waitForPaint } from "./page-runtime.ts";
 
 const audiblePeak = 1e-4;

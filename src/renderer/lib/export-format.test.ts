@@ -7,17 +7,10 @@ import {
 } from "./export-format.ts";
 
 describe("exportFormatDisabled", () => {
-  it("keeps PNG when ffmpeg is missing", () => {
-    expect(exportFormatDisabled("png", { oddSize: false, ffmpegReady: false })).toBe(false);
-  });
-
-  it("blocks encoded formats when ffmpeg is missing", () => {
-    expect(exportFormatDisabled("mp4", { oddSize: false, ffmpegReady: false })).toBe(true);
-    expect(exportFormatDisabled("webm", { oddSize: false, ffmpegReady: false })).toBe(true);
-    expect(exportFormatDisabled("gif", { oddSize: false, ffmpegReady: false })).toBe(true);
-    expect(exportFormatDisabled("mp3", { oddSize: false, ffmpegReady: false })).toBe(true);
-    expect(exportFormatDisabled("wav", { oddSize: false, ffmpegReady: false })).toBe(true);
-    expect(exportFormatDisabled("ogg", { oddSize: false, ffmpegReady: false })).toBe(true);
+  it("enables every format for even sizes", () => {
+    for (const format of ["png", "gif", "webp", "mp4", "webm", "mp3", "wav", "ogg"] as const) {
+      expect(exportFormatDisabled(format, { oddSize: false })).toBe(false);
+    }
   });
 
   it("names formats in Poppins-facing copy", () => {
@@ -29,10 +22,11 @@ describe("exportFormatDisabled", () => {
     expect(exportFormatLabel("ogg")).toBe("OGG");
   });
 
-  it("blocks odd MP4 even when ffmpeg is healthy", () => {
-    expect(exportFormatDisabled("mp4", { oddSize: true, ffmpegReady: true })).toBe(true);
-    expect(exportFormatDisabled("png", { oddSize: true, ffmpegReady: true })).toBe(false);
-    expect(exportFormatDisabled("wav", { oddSize: true, ffmpegReady: true })).toBe(false);
+  it("blocks odd MP4 and WebM only", () => {
+    expect(exportFormatDisabled("mp4", { oddSize: true })).toBe(true);
+    expect(exportFormatDisabled("webm", { oddSize: true })).toBe(true);
+    expect(exportFormatDisabled("png", { oddSize: true })).toBe(false);
+    expect(exportFormatDisabled("wav", { oddSize: true })).toBe(false);
   });
 
   it("groups formats so the dialog can keep eight names on three rows", () => {

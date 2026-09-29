@@ -4,7 +4,6 @@ import type { ExportJob } from "../../main/export.ts";
 import type { RuntimeCatalog } from "../../main/runtime.ts";
 import type { ValidationReport } from "../../main/validate.ts";
 import type { ExportFile } from "@shared/ipc.ts";
-import type { FfmpegHealth } from "@shared/ffmpeg.ts";
 import { addAssetToTimeline } from "@/lib/add-asset.ts";
 import type { Composition, Control, MediaDocument, MediaTrack, Marker } from "@shared/schemas.ts";
 import type { ExampleId } from "../../main/examples/index.ts";
@@ -97,7 +96,6 @@ type StudioState = {
   writeEpoch: number;
   loopSeam: boolean | null;
   loopSeamEpoch: number;
-  ffmpegHealth: FfmpegHealth | null;
   exportJobs: ExportJob[];
   setMode: (mode: WorkspaceMode) => void;
   setPlayhead: (seconds: number) => void;
@@ -140,7 +138,6 @@ type StudioState = {
   createMusicBlock: (name?: string, start?: number, lane?: number) => Promise<void>;
   addLibraryAsset: (asset: string, start?: number, lane?: number) => Promise<void>;
   reorderCompositions: (ids: string[]) => Promise<void>;
-  refreshHealth: () => Promise<void>;
   deleteTrack: (trackId: string) => Promise<void>;
   putMarker: (marker: Marker) => Promise<void>;
   deleteMarker: (markerId: string) => Promise<void>;
@@ -516,7 +513,6 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   writeEpoch: 0,
   loopSeam: null,
   loopSeamEpoch: 0,
-  ffmpegHealth: null,
   exportJobs: [],
   setMode: (mode) => set({ mode }),
   setPlayhead: (seconds) => {
@@ -651,16 +647,15 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   boot: async () => {
     set({ loading: true, loadError: null });
     try {
-      const [compositions, settings, runtimeCatalog, ffmpegHealth, exportJobs] = await Promise.all([
+      const [compositions, settings, runtimeCatalog, exportJobs] = await Promise.all([
         window.studio.compositions.list(),
         window.studio.app.getSettings(),
         window.studio.runtime.catalog(),
-        window.studio.app.getHealth(),
         window.studio.export.jobs(),
       ]);
       const known = new Set(compositions.map((item) => item.id));
       const openIds = rememberOpen(readOpenIds().filter((id) => known.has(id)));
-      set({ compositions, runtimeCatalog, ffmpegHealth, exportJobs, openIds, loading: false });
+      set({ compositions, runtimeCatalog, exportJobs, openIds, loading: false });
       const saved = settings.lastCompositionId;
       const selected =
         (saved && known.has(saved) ? saved : undefined) ??
@@ -846,9 +841,6 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       window.studio.export.jobs(),
     ]);
     set({ exports, exportJobs });
-  },
-  refreshHealth: async () => {
-    set({ ffmpegHealth: await window.studio.app.getHealth() });
   },
   reorderCompositions: async (ids) => {
     set({ compositions: await window.studio.compositions.reorder(ids) });

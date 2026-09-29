@@ -13,7 +13,6 @@ const studio: StudioApi = {
     getInfo: () => invoke(ipcChannels.app.getInfo),
     getSettings: () => invoke(ipcChannels.app.getSettings),
     setSettings: (settings) => invoke(ipcChannels.app.setSettings, settings),
-    getHealth: () => invoke(ipcChannels.app.getHealth),
   },
   compositions: {
     list: () => invoke(ipcChannels.compositions.list),

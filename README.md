@@ -40,9 +40,8 @@ README_BANNER=1 pnpm exec vitest run src/main/write-readme-banner.test.ts
 - Node.js 22.12 or newer
 - pnpm 11 or newer
 - `sfw` (Socket Firewall) on `PATH`
-- `ffmpeg` and `ffprobe` on `PATH`
 
-FFmpeg must provide `libopenh264`, `aac`, `libvpx-vp9`, `libopus`, GIF `palettegen` and `paletteuse`, and `libwebp_anim`.
+No FFmpeg install is needed. Export and media probing run in-process: [Mediabunny](https://mediabunny.dev) with `@mediabunny/server` handles MP4, WebM, MP3, WAV, and Ogg, `modern-gif` writes GIFs, and `wasm-webp` writes animated WebP.
 
 ## Setup
 
@@ -182,10 +181,10 @@ AUTOMEDIA_LOOPBACK_PORT=49000 AUTOMEDIA_CDP_PORT=49001 pnpm dev
 - Files: `list_files`, `read_file`, `write_file`, `delete_file`
 - Media: `get_media`, `probe_media`, `create_block`, `create_music_block`, `put_track`, `delete_track`, `put_marker`, `delete_marker`
 - Controls: `list_controls`, `put_control`, `delete_control`
-- Runtime: `get_runtime_catalog`, `get_runtime_types`, `get_health`
+- Runtime: `get_runtime_catalog`, `get_runtime_types`
 - Quality and export: `validate`, `start_export`, `get_export`, `cancel_export`
 
-`delete_composition` moves a project into `.trash`. `workspace_status` reports ffmpeg health, export jobs, and composition leases. Claim a composition before parallel writes. `start_export` runs validation first and queues jobs; one export runs at a time. Video and audio formats need a healthy ffmpeg. Supported formats are PNG, GIF, WebP, MP4, WebM, MP3, WAV, and OGG. PNG can capture a single time; GIF, WebP, MP4, and WebM render the full composition. MP3, WAV, and OGG export audio only. MP4 and WebM require even dimensions and an opaque background.
+`delete_composition` moves a project into `.trash`. `workspace_status` reports export jobs and composition leases. Claim a composition before parallel writes. `start_export` runs validation first and queues jobs; one export runs at a time. Supported formats are PNG, GIF, WebP, MP4, WebM, MP3, WAV, and OGG. PNG can capture a single time; GIF, WebP, MP4, and WebM render the full composition. MP3, WAV, and OGG export audio only. MP4 and WebM require even dimensions and an opaque background.
 
 ## Scripts
 

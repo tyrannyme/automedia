@@ -5,8 +5,28 @@ import { isExportFormat } from "@shared/media.ts";
 import type { ExportFile } from "@shared/ipc.ts";
 import type { Composition, ExportFormat } from "@shared/schemas.ts";
 import { pathExists } from "./fs.ts";
-import { probeFile } from "./probe.ts";
+import { probeFile, type ProbeResult } from "./probe.ts";
 import type { CompositionStore } from "./store.ts";
+
+const containers = {
+  mp4: "MP4",
+  webm: "WebM",
+  mp3: "MP3",
+  wav: "WAVE",
+  ogg: "Ogg",
+} as const;
+
+function verifyContainer(probe: ProbeResult, format: keyof typeof containers): void {
+  if (probe.formatName !== containers[format]) {
+    throw new AppError("verify_failed", `export container is not ${format}`);
+  }
+}
+
+function verifyDuration(probe: ProbeResult, composition: Composition): void {
+  if (Math.abs(probe.durationSeconds - composition.durationSeconds) > 0.15) {
+    throw new AppError("verify_failed", "export duration does not match the composition");
+  }
+}
 
 export async function verifyVideo(
   filePath: string,
@@ -15,17 +35,12 @@ export async function verifyVideo(
   format: Extract<ExportFormat, "mp4" | "webm"> = "mp4",
 ): Promise<void> {
   const probe = await probeFile(filePath);
-  const formatName = probe.formatName.toLowerCase();
-  if (!formatName.includes(format)) {
-    throw new AppError("verify_failed", `export container is not ${format}`);
-  }
+  verifyContainer(probe, format);
   const video = probe.streams.find((stream) => stream.codecType === "video");
   if (!video) {
     throw new AppError("verify_failed", "export has no video stream");
   }
-  const codec = video.codecName.toLowerCase();
-  const validCodec = format === "mp4" ? codec.includes("h264") : codec.includes("vp9");
-  if (!validCodec) {
+  if (video.codecName !== (format === "mp4" ? "avc" : "vp9")) {
     throw new AppError("verify_failed", `export video codec is not valid for ${format}`);
   }
   if (video.width !== composition.width || video.height !== composition.height) {
@@ -37,24 +52,18 @@ export async function verifyVideo(
   ) {
     throw new AppError("verify_failed", "export frame rate does not match the composition");
   }
-  const hasAudio = probe.streams.some((stream) => stream.codecType === "audio");
-  if (hasAudio !== expectAudio) {
+  const audio = probe.streams.find((stream) => stream.codecType === "audio");
+  if (Boolean(audio) !== expectAudio) {
     throw new AppError(
       "verify_failed",
       expectAudio ? "export is missing audio" : "export has unexpected audio",
     );
   }
-  if (hasAudio) {
-    const audio = probe.streams.find((stream) => stream.codecType === "audio");
-    const audioCodec = audio?.codecName.toLowerCase() ?? "";
-    const expectedCodec = format === "mp4" ? "aac" : "opus";
-    if (!audio || !audioCodec.includes(expectedCodec)) {
-      throw new AppError("verify_failed", `export audio codec is not ${expectedCodec}`);
-    }
+  const expectedCodec = format === "mp4" ? "aac" : "opus";
+  if (audio && audio.codecName !== expectedCodec) {
+    throw new AppError("verify_failed", `export audio codec is not ${expectedCodec}`);
   }
-  if (Math.abs(probe.durationSeconds - composition.durationSeconds) > 0.15) {
-    throw new AppError("verify_failed", "export duration does not match the composition");
-  }
+  verifyDuration(probe, composition);
 }
 
 export async function verifyAudio(
@@ -63,11 +72,7 @@ export async function verifyAudio(
   format: Extract<ExportFormat, "mp3" | "wav" | "ogg">,
 ): Promise<void> {
   const probe = await probeFile(filePath);
-  const formatName = probe.formatName.toLowerCase();
-  const container = format === "wav" ? "wav" : format;
-  if (!formatName.includes(container)) {
-    throw new AppError("verify_failed", `export container is not ${format}`);
-  }
+  verifyContainer(probe, format);
   if (probe.streams.some((stream) => stream.codecType === "video")) {
     throw new AppError("verify_failed", "audio export has a video stream");
   }
@@ -75,14 +80,11 @@ export async function verifyAudio(
   if (!audio) {
     throw new AppError("verify_failed", "export has no audio stream");
   }
-  const codec = audio.codecName.toLowerCase();
-  const expectedCodec = format === "mp3" ? "mp3" : format === "wav" ? "pcm" : "vorbis";
-  if (!codec.includes(expectedCodec)) {
+  const expectedCodec = format === "mp3" ? "mp3" : format === "wav" ? "pcm-s16" : "vorbis";
+  if (audio.codecName !== expectedCodec) {
     throw new AppError("verify_failed", `export audio codec is not ${expectedCodec}`);
   }
-  if (Math.abs(probe.durationSeconds - composition.durationSeconds) > 0.15) {
-    throw new AppError("verify_failed", "export duration does not match the composition");
-  }
+  verifyDuration(probe, composition);
 }
 
 export async function exportFileExists(

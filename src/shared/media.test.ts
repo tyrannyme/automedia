@@ -3,7 +3,6 @@ import {
   audibleAssetTracks,
   audibleMusicTracks,
   exportExpectsAudio,
-  exportNeedsFfmpeg,
   exportNeedsQuality,
   isAssetExtension,
   isAssetKind,
@@ -43,8 +42,6 @@ describe("media helpers", () => {
     expect(isAudioExportFormat("wav")).toBe(true);
     expect(exportNeedsQuality("mp3")).toBe(true);
     expect(exportNeedsQuality("wav")).toBe(false);
-    expect(exportNeedsFfmpeg("png")).toBe(false);
-    expect(exportNeedsFfmpeg("ogg")).toBe(true);
   });
 
   it("counts only audio and video tracks for media preparation", () => {

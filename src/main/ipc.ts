@@ -2,7 +2,7 @@ import { copyFile } from "node:fs/promises";
 import path from "node:path";
 import { app, dialog, ipcMain, shell, type IpcMainInvokeEvent } from "electron";
 import * as v from "valibot";
-import { AppError, mapMissingBinaryError, toErrorObject } from "@shared/errors.ts";
+import { AppError, toErrorObject } from "@shared/errors.ts";
 import { Result } from "better-result";
 import { appInfoSchema, ipcChannels, type IpcResult } from "@shared/ipc.ts";
 import { imageExtensions, mediaExtensions } from "@shared/limits.ts";
@@ -27,7 +27,6 @@ import { ExportQueue, listExports, type ExportJob } from "./export.ts";
 import { createId, pathExists, readBytes, resolveInside } from "./fs.ts";
 import { probeFile } from "./probe.ts";
 import { runtimeCatalog } from "./runtime.ts";
-import { ffmpegHealth } from "./ffmpeg.ts";
 import { readSettings, writeSettings } from "./settings.ts";
 import { CompositionStore } from "./store.ts";
 import { validateComposition, type LoopbackUrlSource } from "./validate.ts";
@@ -48,8 +47,6 @@ export function handleIpc<TSchema extends v.GenericSchema, TOutput>(
       try: async () => handler(v.parse(inputSchema, raw), event),
       catch: (cause) => {
         if (cause instanceof AppError) return cause;
-        const missing = mapMissingBinaryError(cause);
-        if (missing) return missing;
         return new AppError(
           "internal",
           cause instanceof Error && cause.message.length > 0 ? cause.message : "Unexpected error",
@@ -96,7 +93,6 @@ export function registerIpcHandlers({
   handleIpc(ipcChannels.app.setSettings, appSettingsSchema, (settings) =>
     writeSettings(userData, settings),
   );
-  handleIpc(ipcChannels.app.getHealth, noArgs, () => ffmpegHealth());
 
   handleIpc(ipcChannels.compositions.list, noArgs, () => store.list());
   handleIpc(ipcChannels.compositions.get, compositionInput, ({ compositionId }) =>

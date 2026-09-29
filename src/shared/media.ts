@@ -89,7 +89,3 @@ export function exportNeedsQuality(format: string): boolean {
     format === "ogg"
   );
 }
-
-export function exportNeedsFfmpeg(format: string): boolean {
-  return format !== "png";
-}
