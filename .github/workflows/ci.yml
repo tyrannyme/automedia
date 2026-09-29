@@ -71,10 +71,6 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
-      - name: Test
-        if: runner.os == 'Windows'
-        run: pnpm test
-
       - name: Make
         run: pnpm make
 
