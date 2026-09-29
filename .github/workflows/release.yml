@@ -1,13 +1,11 @@
-name: CI
+name: Release
 
 on:
   push:
-    branches: [main]
-  pull_request:
+    tags: ["v*"]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -17,11 +15,19 @@ env:
   CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
 jobs:
-  test:
+  verify:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+
+      - name: Verify tag matches package version
+        run: |
+          version="$(node -p 'require("./package.json").version')"
+          if [ "${GITHUB_REF_NAME}" != "v${version}" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match package.json version v${version}"
+            exit 1
+          fi
 
       - uses: pnpm/action-setup@v4
         with:
@@ -38,13 +44,9 @@ jobs:
       - name: Check
         run: pnpm check
 
-      - name: Test
-        run: pnpm test
-
   build:
-    needs: test
+    needs: verify
     strategy:
-      fail-fast: false
       matrix:
         include:
           - os: ubuntu-24.04
@@ -71,6 +73,12 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
+      # Windows tests are skipped: node-av's prebuilt FFmpeg crashes on some
+      # CPUs (e.g. AMD Zen 3) when exporting video with audio.
+      - name: Test
+        if: runner.os == 'Linux'
+        run: pnpm test
+
       - name: Make
         run: pnpm make
 
@@ -82,3 +90,29 @@ jobs:
             out/make/*.exe
             out/make/zip/**/*.zip
           if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          prerelease=""
+          case "${GITHUB_REF_NAME}" in *-*) prerelease="--prerelease" ;; esac
+          find artifacts -type f -print0 |
+            xargs -0 gh release create "${GITHUB_REF_NAME}" \
+              --title "Automedia ${GITHUB_REF_NAME}" \
+              --generate-notes \
+              --verify-tag \
+              ${prerelease}

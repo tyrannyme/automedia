@@ -89,6 +89,12 @@
       "category": "AudioVideo",
       "icon": "assets/icon.png",
       "syncDesktopName": true
+    },
+    "win": {
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "artifactName": "${productName}-${version}-Setup.${ext}"
     }
   },
   "desktopName": "Automedia",
