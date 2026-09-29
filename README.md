@@ -188,17 +188,17 @@ AUTOMEDIA_LOOPBACK_PORT=49000 AUTOMEDIA_CDP_PORT=49001 pnpm dev
 
 ## Scripts
 
-| Command                   | Purpose                                       |
-| ------------------------- | --------------------------------------------- |
-| `pnpm dev` / `pnpm start` | Start the Electron app and localhost services |
-| `pnpm typecheck`          | Type-check the main process and renderer      |
-| `pnpm lint`               | Run oxlint                                    |
-| `pnpm fmt`                | Format with oxfmt                             |
-| `pnpm fmt:check`          | Check formatting without changing files       |
-| `pnpm check`              | Run lint, format checks, and typecheck        |
-| `pnpm test`               | Run the Vitest unit and integration suite     |
-| `pnpm package`            | Package the Electron app                      |
-| `pnpm make`               | Build an AppImage and a zip archive           |
+| Command                   | Purpose                                                      |
+| ------------------------- | ------------------------------------------------------------ |
+| `pnpm dev` / `pnpm start` | Start the Electron app and localhost services                |
+| `pnpm typecheck`          | Type-check the main process and renderer                     |
+| `pnpm lint`               | Run oxlint                                                   |
+| `pnpm fmt`                | Format with oxfmt                                            |
+| `pnpm fmt:check`          | Check formatting without changing files                      |
+| `pnpm check`              | Run lint, format checks, and typecheck                       |
+| `pnpm test`               | Run the Vitest unit and integration suite                    |
+| `pnpm package`            | Package the Electron app                                     |
+| `pnpm make`               | Build an AppImage (Linux) or installer (Windows), plus a zip |
 
 ## Repository layout
 

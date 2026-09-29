@@ -5,7 +5,7 @@ import { FusesPlugin } from "@electron-forge/plugin-fuses";
 import { VitePlugin } from "@electron-forge/plugin-vite";
 import type { ForgeConfig } from "@electron-forge/shared-types";
 import { FuseV1Options, FuseVersion } from "@electron/fuses";
-import { MakerAppImage } from "./forge/maker-appimage.ts";
+import { MakerAppImage, MakerNSIS } from "./forge/maker-electron-builder.ts";
 
 const runtimePackages = [
   "playwright",
@@ -61,7 +61,7 @@ const config: ForgeConfig = {
     afterCopy: [copyRuntimePackages],
   },
   rebuildConfig: {},
-  makers: [new MakerAppImage({}), new MakerZIP({})],
+  makers: [new MakerAppImage({}), new MakerNSIS({}), new MakerZIP({})],
   plugins: [
     new VitePlugin({
       build: [
