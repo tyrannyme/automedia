@@ -39,15 +39,31 @@ export async function waitForPaint(page: Page): Promise<void> {
   }`);
 }
 
+/** The DOM the frame marker touches. Main-process code has no DOM types. */
+type MarkerNode = { id: string; style: { cssText: string; opacity: string } };
+type MarkerDocument = {
+  documentElement: { append(node: MarkerNode): void };
+  getElementById(id: string): MarkerNode | null;
+  createElement(tag: "div"): MarkerNode;
+};
+
+/**
+ * Seeks the composition runtime. With `forceFrame`, the same task also nudges
+ * a 1px marker, so Chromium presents a new frame even when the seek changed
+ * nothing visible. Screencast capture waits for that frame, and an unchanged
+ * frame would otherwise never arrive. Both marker opacities round to alpha 0,
+ * so no captured pixel changes.
+ */
 export async function seekInjectedRuntime(
   page: Page,
   timeSeconds: number,
   frame: number,
+  forceFrame = false,
 ): Promise<void> {
   const result = v.parse(
     seekResultSchema,
     await page.evaluate(
-      async ({ timeSeconds: requestedTime, frame: requestedFrame }) => {
+      async ({ timeSeconds: requestedTime, frame: requestedFrame, forceFrame: nudge }) => {
         // SAFETY: page global exposes the shared automedia runtime contract.
         const automedia = (globalThis as typeof globalThis & { automedia?: AutomediaRuntime })
           .automedia;
@@ -56,9 +72,22 @@ export async function seekInjectedRuntime(
         }
         await automedia.ready();
         await automedia.seek(requestedTime, requestedFrame);
+        if (nudge) {
+          // SAFETY: evaluate runs in the composition page, which has a DOM.
+          const { document } = globalThis as typeof globalThis & { document: MarkerDocument };
+          const marker =
+            document.getElementById("automedia-frame-marker") ?? document.createElement("div");
+          if (!marker.id) {
+            marker.id = "automedia-frame-marker";
+            marker.style.cssText =
+              "position:fixed;left:0;top:0;width:1px;height:1px;background:#000;pointer-events:none;z-index:2147483647";
+            document.documentElement.append(marker);
+          }
+          marker.style.opacity = marker.style.opacity === "0.001" ? "0.0015" : "0.001";
+        }
         return { ok: true };
       },
-      { timeSeconds, frame },
+      { timeSeconds, frame, forceFrame },
     ),
   );
   if (!result.ok) {

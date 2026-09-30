@@ -193,6 +193,8 @@ async function timelineAudio(
   return [...clips, ...wavs.map((wav) => musicClip(wav, composition.durationSeconds))];
 }
 
+const frameTimeoutMs = 30_000;
+
 /**
  * Chromium's screencast emits a frame whenever the compositor presents one.
  * Seeking and then waiting for the next emitted frame captures exactly what
@@ -235,8 +237,25 @@ function screencastFrames(session: CDPSession) {
       if (stopped) {
         return Promise.reject(new AppError("encode_failed", "preview compositor stopped"));
       }
+      // Seeks force a new frame, so a missing one means the page is stuck.
+      // Fail the export instead of waiting forever.
       return new Promise<Buffer>((resolve, reject) => {
-        waiters.add({ afterSequence, resolve, reject });
+        const timer = setTimeout(() => {
+          waiters.delete(waiter);
+          reject(new AppError("encode_failed", "preview stopped presenting frames"));
+        }, frameTimeoutMs);
+        const waiter = {
+          afterSequence,
+          resolve(frame: Buffer) {
+            clearTimeout(timer);
+            resolve(frame);
+          },
+          reject(error: Error) {
+            clearTimeout(timer);
+            reject(error);
+          },
+        };
+        waiters.add(waiter);
       });
     },
     stop(error: Error) {
@@ -383,7 +402,7 @@ export async function captureVideo(
           throwIfCanceled(isCanceled);
           if (frame > 0 && hasVisualTracks) {
             const beforeSeek = screencast.sequence;
-            await seekInjectedRuntime(page, timeFromFrame(frame, composition.fps), frame);
+            await seekInjectedRuntime(page, timeFromFrame(frame, composition.fps), frame, true);
             image = decodePng(await screencast.after(beforeSeek));
           }
           throwIfCanceled(isCanceled);

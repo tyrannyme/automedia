@@ -156,11 +156,6 @@ pnpm exec vitest run src/renderer       # renderer unit tests, ~2s
   Electron main process crashed. Forge still exits 0. Check
   `coredumpctl list | tail` for the stack. Run `app.sh start` to recover;
   projects persist in the profile.
-- **A video export sits in `capturing` forever:** capture waits for a new
-  screencast frame after every seek, and a frame that looks the same as the
-  last one never arrives. Static blocks and compositions longer than their
-  animation both hit this. To test export, use an animated example such as
-  **CSS clock** at its own duration.
 - **`connect ECONNREFUSED 127.0.0.1:47922`:** the app isn't running (see
   above) or was started on other ports. Run `app.sh status`, then
   `app.sh start`.
