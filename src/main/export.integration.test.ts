@@ -80,6 +80,17 @@ integration("export integration", () => {
     expect(completed.contentUrl).toContain(`/exports/${job.id}`);
   }, 90_000);
 
+  it("exports video whose frames stop changing", async () => {
+    // The clock animates for 2 seconds; the last second repeats one frame.
+    const composition = await writeExample(store, "css-clock");
+    await store.updateSettings({ compositionId: composition.id, durationSeconds: 3 });
+
+    const job = await queue.start({ compositionId: composition.id, format: "webm" });
+    const completed = await waitForPhase(job.id, new Set(["completed", "failed"]), 60_000);
+    expect(completed.error).toBeUndefined();
+    expect(completed.phase).toBe("completed");
+  }, 90_000);
+
   it("cancels proof MP4 during capture and leaves no output or temporary file", async () => {
     const composition = await writeExample(store, "proof");
     const job = await queue.start({ compositionId: composition.id, format: "mp4", quality: 80 });
