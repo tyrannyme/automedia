@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer } from "electron";
 import { loopbackHost, loopbackPort } from "@shared/limits.ts";
 import { unwrapIpcResult } from "@shared/errors.ts";
-import { ipcChannels, type StudioApi } from "@shared/ipc.ts";
+import { ipcChannels, type StudioApi, type UpdateState } from "@shared/ipc.ts";
 
 async function invoke<T>(channel: string, ...args: [] | [unknown]): Promise<T> {
   // SAFETY: every registered handler returns the shared IpcResult envelope.
@@ -77,6 +77,18 @@ const studio: StudioApi = {
   },
   assets: {
     import: (compositionId) => invoke(ipcChannels.assets.import, { compositionId }),
+  },
+  updates: {
+    get: () => invoke(ipcChannels.updates.get),
+    download: () => invoke(ipcChannels.updates.download),
+    install: () => invoke(ipcChannels.updates.install),
+    subscribe: (listener) => {
+      const handler = (_event: Electron.IpcRendererEvent, state: UpdateState) => listener(state);
+      ipcRenderer.on(ipcChannels.updates.changed, handler);
+      return () => {
+        ipcRenderer.off(ipcChannels.updates.changed, handler);
+      };
+    },
   },
 };
 

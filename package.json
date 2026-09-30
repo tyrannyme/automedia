@@ -30,6 +30,7 @@
     "better-result": "^3.0.1",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
+    "electron-updater": "6.8.10",
     "framer-motion": "13.1.0",
     "mediabunny": "1.60.0",
     "modern-gif": "2.1.0",
@@ -95,6 +96,11 @@
     },
     "nsis": {
       "artifactName": "${productName}-${version}-Setup.${ext}"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "tyrannyme",
+      "repo": "automedia"
     }
   },
   "desktopName": "Automedia",

@@ -153,6 +153,9 @@ export async function startLoopbackServer(options: {
               }
               closeResolve();
             });
+            // Open event streams would hold close() forever while a window
+            // is still up, as when an update quits the app.
+            server.closeAllConnections();
           }),
       });
     });
