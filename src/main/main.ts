@@ -10,8 +10,10 @@ import { subscribeThumbnailMutations, ThumbnailService } from "./thumbnails.ts";
 import { loopbackHost, loopbackPort } from "@shared/limits.ts";
 import { cdpOrigin, resolveCdpPort } from "./cdp.ts";
 import { startUpdates } from "./updates.ts";
+import { registerVideoEncoderScheme } from "./chromium-video-encoder.ts";
 
 app.enableSandbox();
+registerVideoEncoderScheme();
 
 // CDP stays on localhost so agents can attach.
 app.commandLine.appendSwitch("remote-debugging-port", String(resolveCdpPort()));
