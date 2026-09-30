@@ -15,37 +15,7 @@ env:
   CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
 jobs:
-  verify:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Verify tag matches package version
-        run: |
-          version="$(node -p 'require("./package.json").version')"
-          if [ "${GITHUB_REF_NAME}" != "v${version}" ]; then
-            echo "::error::Tag ${GITHUB_REF_NAME} does not match package.json version v${version}"
-            exit 1
-          fi
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 11.15.1
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Install
-        run: pnpm install --frozen-lockfile
-
-      - name: Check
-        run: pnpm check
-
   build:
-    needs: verify
     strategy:
       matrix:
         include:
@@ -70,8 +40,24 @@ jobs:
           node-version: 22
           cache: pnpm
 
+      # The tag is the version. package.json is not bumped per release.
+      - name: Set version from tag
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          if ! [[ "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} is not a vX.Y.Z version"
+            exit 1
+          fi
+          npm pkg set "version=${version}"
+
       - name: Install
         run: pnpm install --frozen-lockfile
+
+      # Linux finishes well before Windows, so checking there costs no time.
+      - name: Check
+        if: runner.os == 'Linux'
+        run: pnpm check
 
       # Windows tests are skipped: node-av's prebuilt FFmpeg crashes on some
       # CPUs (e.g. AMD Zen 3) when exporting video with audio.
