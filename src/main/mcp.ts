@@ -121,7 +121,7 @@ export function createMcpServer(options: {
   const { store, exports: queue, events, loopbackUrl } = options;
   const server = new McpServer({
     name: "automedia",
-    version: "0.1.0",
+    version: app?.getVersion() ?? "0.1.0",
   });
 
   const log = (
