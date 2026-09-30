@@ -202,7 +202,7 @@ AUTOMEDIA_LOOPBACK_PORT=49000 AUTOMEDIA_CDP_PORT=49001 pnpm dev
 
 ## Releases
 
-Pushing a `v*` tag that matches `package.json` builds and publishes a GitHub release. The AppImage and the Windows installer check for a newer release hourly and offer it from the titlebar. The zips do not self-update.
+Pushing a `vX.Y.Z` tag on `main` builds and publishes a GitHub release. The tag sets the version, so `package.json` is not bumped per release. The AppImage and the Windows installer check for a newer release hourly and offer it from the titlebar. The zips do not self-update.
 
 ## Repository layout
 
