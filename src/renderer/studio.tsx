@@ -25,7 +25,8 @@ import { TooltipProvider } from "@/components/ui/tooltip.tsx";
 import { isTypingTarget } from "@/lib/playback.ts";
 import { clipLabel } from "@/lib/timeline-math.ts";
 import { eventsUrl } from "@/lib/loopback.ts";
-import { upsertExportJob } from "@/lib/export-progress.ts";
+import { videoExportBlock } from "@/lib/export-format.ts";
+import { newestExportJob, upsertExportJob } from "@/lib/export-progress.ts";
 import { planStudioEvent } from "@/lib/studio-sync.ts";
 import {
   fitLayout,
@@ -243,12 +244,15 @@ export function StudioPage() {
       };
       if (input.quality !== undefined) payload.quality = input.quality;
       if (input.timeSeconds !== undefined) payload.timeSeconds = input.timeSeconds;
-      const job = await window.studio.export.start(payload);
-      useStudioStore.setState((state) => ({
-        exportJob: job,
-        lastExportFormat: input.format,
-        exportJobs: upsertExportJob(state.exportJobs, job),
-      }));
+      const started = await window.studio.export.start(payload);
+      useStudioStore.setState((state) => {
+        const job = newestExportJob(state.exportJobs, started);
+        return {
+          exportJob: job,
+          lastExportFormat: input.format,
+          exportJobs: upsertExportJob(state.exportJobs, job),
+        };
+      });
       setExportMessage(null);
     } catch (error) {
       setExportMessage(error instanceof Error ? error.message : "Export failed");
@@ -552,12 +556,10 @@ export function StudioPage() {
           onOpenChange={setExportOpen}
           job={exportJob}
           jobs={exportJobs}
-          oddSize={
-            composition !== null && (composition.width % 2 !== 0 || composition.height % 2 !== 0)
-          }
+          videoBlock={videoExportBlock(composition)}
           lastFormat={lastExportFormat}
           errorMessage={exportMessage}
-          onStart={(input) => void startExport(input)}
+          onStart={startExport}
           onCancel={() => void cancelExport()}
           onReveal={() => {
             if (compositionId) void window.studio.export.reveal(compositionId);
@@ -584,7 +586,7 @@ export function StudioPage() {
         >
           <DialogContent
             showCloseButton
-            className="flex h-[min(640px,calc(100vh-6rem))] w-[min(1100px,calc(100vw-3rem))] max-w-none flex-col gap-0 p-0 sm:max-w-none"
+            className="flex h-[min(640px,calc(100vh-6rem))] w-[min(1100px,calc(100vw-3rem))] max-w-none flex-col gap-0 overflow-hidden p-0 sm:max-w-none"
           >
             <DialogHeader className="shrink-0 px-4 py-3">
               <DialogTitle>
@@ -603,7 +605,7 @@ export function StudioPage() {
         >
           <DialogContent
             showCloseButton
-            className="flex h-[min(560px,calc(100vh-6rem))] w-[min(760px,calc(100vw-3rem))] max-w-none flex-col gap-0 p-0 sm:max-w-none"
+            className="flex h-[min(560px,calc(100vh-6rem))] w-[min(760px,calc(100vw-3rem))] max-w-none flex-col gap-0 overflow-hidden p-0 sm:max-w-none"
           >
             <DialogHeader className="shrink-0 px-4 py-3">
               <DialogTitle>

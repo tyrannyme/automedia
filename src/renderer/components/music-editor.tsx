@@ -104,7 +104,7 @@ export function MusicEditor({ onReload }: { onReload: () => void }) {
             value={pattern}
             onChange={(event) => setPattern(event.target.value)}
             spellCheck={false}
-            className="min-h-0 flex-1 resize-none rounded-none p-0 font-mono text-sm leading-[1.45] hover:bg-transparent focus-visible:bg-transparent"
+            className="-mx-2 min-h-0 w-auto flex-1 resize-none rounded-sm px-2 py-1 font-mono text-sm leading-[1.45] hover:bg-transparent focus-visible:bg-transparent"
           />
         </div>
       )}

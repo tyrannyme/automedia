@@ -34,10 +34,14 @@ type ExportDialogProps = {
   onOpenChange: (open: boolean) => void;
   job: ExportJob | null;
   jobs?: ExportJob[];
-  oddSize: boolean;
+  videoBlock: string | null;
   lastFormat: ExportFormat;
   errorMessage: string | null;
-  onStart: (input: { format: ExportFormat; quality?: number; timeSeconds?: number }) => void;
+  onStart: (input: {
+    format: ExportFormat;
+    quality?: number;
+    timeSeconds?: number;
+  }) => Promise<void>;
   onCancel: () => void;
   onReveal: () => void;
   onSaveCopy: () => void;
@@ -49,7 +53,7 @@ export function ExportDialog({
   onOpenChange,
   job,
   jobs = [],
-  oddSize,
+  videoBlock,
   lastFormat,
   errorMessage,
   onStart,
@@ -62,6 +66,7 @@ export function ExportDialog({
   const [format, setFormat] = useState<ExportFormat>(lastFormat);
   const [quality, setQuality] = useState(80);
   const [followId, setFollowId] = useState<string | null>(null);
+  const [starting, setStarting] = useState(false);
   const view = exportDialogView(job, followId);
   const waiting = jobs.filter((item) => exportIsRunning(item) && item.id !== job?.id).length;
 
@@ -77,12 +82,12 @@ export function ExportDialog({
   useEffect(() => {
     if (!open || view !== "setup") return;
     let next = lastFormat;
-    if (oddSize && isVideoExportFormat(next)) next = "png";
+    if (videoBlock && isVideoExportFormat(next)) next = "png";
     setFormat(next);
-  }, [lastFormat, oddSize, open, view]);
+  }, [lastFormat, videoBlock, open, view]);
 
   const needsQuality = exportNeedsQuality(format);
-  const videoBlocked = oddSize && isVideoExportFormat(format);
+  const videoBlocked = videoBlock !== null && isVideoExportFormat(format);
   const progress = exportProgressPercent(job);
   const helper = exportFormatHelper(format);
 
@@ -100,7 +105,7 @@ export function ExportDialog({
         </DialogHeader>
         <div
           key={view}
-          className="motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200 motion-reduce:animate-none"
+          className="min-w-0 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200 motion-reduce:animate-none"
         >
           {view === "setup" && (
             <div className="space-y-4">
@@ -117,15 +122,17 @@ export function ExportDialog({
                       }}
                       variant="default"
                       spacing={1}
-                      className="flex w-full"
+                      className="grid w-full grid-cols-3"
                       aria-label={`${group.label} export format`}
                     >
                       {group.formats.map((item) => (
                         <ToggleGroupItem
                           key={item}
                           value={item}
-                          className="min-w-0 flex-1"
-                          disabled={exportFormatDisabled(item, { oddSize })}
+                          className="min-w-0"
+                          disabled={exportFormatDisabled(item, {
+                            videoBlocked: videoBlock !== null,
+                          })}
                         >
                           {exportFormatLabel(item)}
                         </ToggleGroupItem>
@@ -133,12 +140,7 @@ export function ExportDialog({
                     </ToggleGroup>
                   </div>
                 ))}
-                {oddSize && (
-                  <p className="text-sm text-muted-foreground">
-                    MP4 and WebM need even width and height. Use a still, an audio format, or change
-                    the composition size.
-                  </p>
-                )}
+                {videoBlock && <p className="text-sm text-muted-foreground">{videoBlock}</p>}
                 {helper && <p className="text-sm text-muted-foreground">{helper}</p>}
               </div>
               {needsQuality && (
@@ -203,19 +205,17 @@ export function ExportDialog({
           {view === "setup" && (
             <Button
               onClick={() => {
-                if (needsQuality) {
-                  onStart({ format, quality });
-                  return;
-                }
-                if (format === "png") {
-                  onStart({ format, timeSeconds: playheadSeconds });
-                  return;
-                }
-                onStart({ format });
+                const input = needsQuality
+                  ? { format, quality }
+                  : format === "png"
+                    ? { format, timeSeconds: playheadSeconds }
+                    : { format };
+                setStarting(true);
+                void onStart(input).finally(() => setStarting(false));
               }}
-              disabled={videoBlocked}
+              disabled={videoBlocked || starting}
             >
-              Start export
+              {starting ? "Starting" : "Start export"}
             </Button>
           )}
           {view === "running" && (

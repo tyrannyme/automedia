@@ -4,12 +4,13 @@ import {
   exportFormatGroups,
   exportFormatHelper,
   exportFormatLabel,
+  videoExportBlock,
 } from "./export-format.ts";
 
 describe("exportFormatDisabled", () => {
-  it("enables every format for even sizes", () => {
+  it("enables every format when video is not blocked", () => {
     for (const format of ["png", "gif", "webp", "mp4", "webm", "mp3", "wav", "ogg"] as const) {
-      expect(exportFormatDisabled(format, { oddSize: false })).toBe(false);
+      expect(exportFormatDisabled(format, { videoBlocked: false })).toBe(false);
     }
   });
 
@@ -22,11 +23,21 @@ describe("exportFormatDisabled", () => {
     expect(exportFormatLabel("ogg")).toBe("OGG");
   });
 
-  it("blocks odd MP4 and WebM only", () => {
-    expect(exportFormatDisabled("mp4", { oddSize: true })).toBe(true);
-    expect(exportFormatDisabled("webm", { oddSize: true })).toBe(true);
-    expect(exportFormatDisabled("png", { oddSize: true })).toBe(false);
-    expect(exportFormatDisabled("wav", { oddSize: true })).toBe(false);
+  it("blocks MP4 and WebM only", () => {
+    expect(exportFormatDisabled("mp4", { videoBlocked: true })).toBe(true);
+    expect(exportFormatDisabled("webm", { videoBlocked: true })).toBe(true);
+    expect(exportFormatDisabled("png", { videoBlocked: true })).toBe(false);
+    expect(exportFormatDisabled("wav", { videoBlocked: true })).toBe(false);
+  });
+
+  it("names why video export is blocked", () => {
+    const opaque = { width: 800, height: 600, background: "#000000" };
+    expect(videoExportBlock(null)).toBeNull();
+    expect(videoExportBlock(opaque)).toBeNull();
+    expect(videoExportBlock({ ...opaque, background: "transparent" })).toContain(
+      "opaque background",
+    );
+    expect(videoExportBlock({ ...opaque, width: 801 })).toContain("even width and height");
   });
 
   it("groups formats so the dialog can keep eight names on three rows", () => {

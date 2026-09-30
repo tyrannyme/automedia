@@ -1,13 +1,19 @@
 import type { ExportJob, ExportPhase } from "../../main/export.ts";
 
-const runningPhases = new Set<ExportPhase>([
+const runningPhaseOrder: readonly ExportPhase[] = [
   "queued",
   "loading",
   "probing",
   "capturing",
   "encoding",
   "verifying",
-]);
+];
+const runningPhases = new Set<ExportPhase>(runningPhaseOrder);
+
+function phaseRank(phase: ExportPhase): number {
+  const index = runningPhaseOrder.indexOf(phase);
+  return index === -1 ? runningPhaseOrder.length : index;
+}
 
 export function exportIsRunning(job: ExportJob | null): boolean {
   return job !== null && runningPhases.has(job.phase);
@@ -34,6 +40,15 @@ export function exportDialogView(job: ExportJob | null, followId: string | null)
   if (job.phase === "completed") return "ready";
   if (job.phase === "failed") return "failed";
   return "setup";
+}
+
+/**
+ * The start reply and the event stream race. A job that fails or finishes fast
+ * can stream past its start reply, so never step a known job back a phase.
+ */
+export function newestExportJob(jobs: readonly ExportJob[], job: ExportJob): ExportJob {
+  const known = jobs.find((item) => item.id === job.id);
+  return known && phaseRank(known.phase) > phaseRank(job.phase) ? known : job;
 }
 
 export function upsertExportJob(jobs: readonly ExportJob[], job: ExportJob): ExportJob[] {

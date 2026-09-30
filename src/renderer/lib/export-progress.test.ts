@@ -5,6 +5,7 @@ import {
   exportIsRunning,
   exportPhaseLabel,
   exportProgressPercent,
+  newestExportJob,
   upsertExportJob,
 } from "./export-progress.ts";
 
@@ -42,5 +43,12 @@ describe("export progress", () => {
   it("upserts the latest job to the front", () => {
     const next = upsertExportJob([job("queued")], { ...job("encoding"), id: "j2" });
     expect(next.map((item) => item.id)).toEqual(["j2", "j1"]);
+  });
+
+  it("keeps a streamed phase over a stale start reply", () => {
+    expect(newestExportJob([job("failed")], job("loading")).phase).toBe("failed");
+    expect(newestExportJob([job("capturing")], job("loading")).phase).toBe("capturing");
+    expect(newestExportJob([job("loading")], job("encoding")).phase).toBe("encoding");
+    expect(newestExportJob([], job("loading")).phase).toBe("loading");
   });
 });

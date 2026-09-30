@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { FolderIcon, PlusIcon, SpeakerWaveIcon } from "@heroicons/react/24/outline";
+import { FolderIcon, FolderPlusIcon, PlusIcon, SpeakerWaveIcon } from "@heroicons/react/24/outline";
 import type { Composition, MediaTrack } from "@shared/schemas.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { ScrollArea } from "@/components/ui/scroll-area.tsx";
@@ -90,7 +90,7 @@ export function LibraryPanel({ composition, files, collapsed, onTrack }: Library
           aria-label="Import"
           onClick={() => void importAsset()}
         >
-          <PlusIcon />
+          <FolderPlusIcon />
         </Button>
         {assets.slice(0, 4).map((file) => (
           <button
@@ -148,7 +148,7 @@ export function LibraryPanel({ composition, files, collapsed, onTrack }: Library
             aria-label="Import"
             onClick={() => void importAsset()}
           >
-            <PlusIcon />
+            <FolderPlusIcon />
           </Button>
         </div>
       </div>

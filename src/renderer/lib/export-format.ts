@@ -1,4 +1,4 @@
-import type { ExportFormat } from "@shared/schemas.ts";
+import type { Composition, ExportFormat } from "@shared/schemas.ts";
 import { isAudioExportFormat, isVideoExportFormat } from "@shared/media.ts";
 
 export const exportFormatGroups = [
@@ -17,9 +17,25 @@ export function exportFormatLabel(format: ExportFormat): string {
   return format.toUpperCase();
 }
 
-export function exportFormatDisabled(format: ExportFormat, options: { oddSize: boolean }): boolean {
-  if (options.oddSize && isVideoExportFormat(format)) return true;
-  return false;
+/** Why MP4 and WebM cannot export this composition, or null when they can. */
+export function videoExportBlock(
+  composition: Pick<Composition, "width" | "height" | "background"> | null,
+): string | null {
+  if (!composition) return null;
+  if (composition.background === "transparent") {
+    return "MP4 and WebM need an opaque background. Use a still, an audio format, or set a background color.";
+  }
+  if (composition.width % 2 !== 0 || composition.height % 2 !== 0) {
+    return "MP4 and WebM need even width and height. Use a still, an audio format, or change the composition size.";
+  }
+  return null;
+}
+
+export function exportFormatDisabled(
+  format: ExportFormat,
+  options: { videoBlocked: boolean },
+): boolean {
+  return options.videoBlocked && isVideoExportFormat(format);
 }
 
 export function exportFormatHelper(format: ExportFormat): string | undefined {

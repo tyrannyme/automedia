@@ -9,6 +9,7 @@ import {
   takeQueuedMessages,
 } from "@/lib/preview-bridge.ts";
 import { isPreviewFrameMessage } from "@/lib/preview-messaging.ts";
+import { cn } from "@/lib/utils.ts";
 import { useStudioStore } from "@/stores/studio.ts";
 
 type PreviewStageProps = {
@@ -185,11 +186,10 @@ export function PreviewStage({ composition, media, controls, onTime }: PreviewSt
         className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-canvas-preview"
       >
         <div
-          className={
-            composition.background === "transparent"
-              ? "chequer relative shrink-0"
-              : "relative shrink-0"
-          }
+          className={cn(
+            "relative shrink-0 outline outline-border",
+            composition.background === "transparent" && "chequer",
+          )}
           style={{
             width: composition.width,
             height: composition.height,
@@ -203,8 +203,10 @@ export function PreviewStage({ composition, media, controls, onTime }: PreviewSt
             src={expectedSrc}
             width={composition.width}
             height={composition.height}
-            className="block border border-border"
-            style={{ width: composition.width, height: composition.height }}
+            className="block"
+            // Chromium paints an opaque backdrop behind a frame whose color scheme differs
+            // from its document. Compositions default to light, so match it to keep alpha.
+            style={{ width: composition.width, height: composition.height, colorScheme: "normal" }}
             sandbox="allow-scripts allow-same-origin"
             onLoad={(event) => {
               const iframe = event.currentTarget;
