@@ -889,7 +889,7 @@ export function Timeline({
           <div className="min-h-0 flex-1 overflow-hidden">
             <div className="relative" style={{ transform: `translateY(${-scrollTop}px)` }}>
               {lanes.length === 0 && (
-                <p className="px-2 py-3 text-sm text-muted-foreground">Drop a clip here</p>
+                <p className="truncate px-2 py-3 text-sm text-muted-foreground">No tracks</p>
               )}
               {lanes.map((lane, index) => {
                 const selectedOnLane = lane.clips.some((clip) => clip.id === selectedTrackId);
