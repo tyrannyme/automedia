@@ -9,6 +9,7 @@ import { CompositionStore } from "./store.ts";
 import { subscribeThumbnailMutations, ThumbnailService } from "./thumbnails.ts";
 import { loopbackHost, loopbackPort } from "@shared/limits.ts";
 import { cdpOrigin, resolveCdpPort } from "./cdp.ts";
+import { startUpdates } from "./updates.ts";
 
 app.enableSandbox();
 
@@ -111,6 +112,7 @@ app.on("ready", () => {
       return { match: await thumbnails.compareLoopSeam(compositionId) };
     },
   });
+  startUpdates();
   void startLoopbackServer({ store, mcp, events, exports })
     .then((server) => {
       loopback = server;

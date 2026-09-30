@@ -200,6 +200,10 @@ AUTOMEDIA_LOOPBACK_PORT=49000 AUTOMEDIA_CDP_PORT=49001 pnpm dev
 | `pnpm package`            | Package the Electron app                                     |
 | `pnpm make`               | Build an AppImage (Linux) or installer (Windows), plus a zip |
 
+## Releases
+
+Pushing a `v*` tag that matches `package.json` builds and publishes a GitHub release. The AppImage and the Windows installer check for a newer release hourly and offer it from the titlebar. The zips do not self-update.
+
 ## Repository layout
 
 ```text

@@ -85,9 +85,12 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: automedia-${{ matrix.name }}
+          # latest*.yml and the blockmaps are what installed apps read to update.
           path: |
             out/make/*.AppImage
             out/make/*.exe
+            out/make/*.blockmap
+            out/make/latest*.yml
             out/make/zip/**/*.zip
           if-no-files-found: error
 

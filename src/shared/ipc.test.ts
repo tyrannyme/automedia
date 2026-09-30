@@ -61,6 +61,7 @@ describe("typed IPC contracts", () => {
       "validate",
       "export",
       "assets",
+      "updates",
     ]);
   });
 });

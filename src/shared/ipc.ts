@@ -80,6 +80,12 @@ export const ipcChannels = {
   assets: {
     import: "assets.import",
   },
+  updates: {
+    get: "updates.get",
+    download: "updates.download",
+    install: "updates.install",
+    changed: "updates.changed",
+  },
 } as const;
 
 export const appInfoSchema = v.object({
@@ -102,6 +108,19 @@ export type ExportFile = {
   fileName: string;
   mtimeMs: number;
 };
+
+/** A found update, from the first sighting until it is installed. */
+export type UpdateState =
+  | { status: "none" }
+  | {
+      status: "available" | "downloading" | "ready";
+      version: string;
+      /** Release notes as the release feed sent them, usually HTML. */
+      notes: string;
+      /** Download percent, 0-100. */
+      progress: number;
+      error: string | null;
+    };
 
 export type IpcResult<T> =
   | { ok: true; data: T }
@@ -176,5 +195,12 @@ export type StudioApi = {
   };
   assets: {
     import: (compositionId: string) => Promise<{ asset: string } | null>;
+  };
+  updates: {
+    get: () => Promise<UpdateState>;
+    download: () => Promise<void>;
+    install: () => Promise<void>;
+    /** Calls back on every state change. Returns an unsubscribe. */
+    subscribe: (listener: (state: UpdateState) => void) => () => void;
   };
 };

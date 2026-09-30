@@ -3,6 +3,7 @@ import type { ExportJob } from "../../main/export.ts";
 import type { Composition } from "@shared/schemas.ts";
 import appIconUrl from "../../../assets/icon.png";
 import { Button } from "@/components/ui/button.tsx";
+import { UpdateButton } from "@/components/update-button.tsx";
 import { exportIsRunning } from "@/lib/export-progress.ts";
 
 type TitlebarProps = {
@@ -41,6 +42,8 @@ export function Titlebar({
       )}
 
       <div className="min-w-0 flex-1" />
+
+      <UpdateButton exporting={running} />
 
       {editingName && (
         <Button variant="default" data-no-drag="" onClick={onDoneEditing}>
