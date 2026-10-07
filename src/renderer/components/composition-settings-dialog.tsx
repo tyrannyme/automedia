@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Composition } from "@shared/schemas.ts";
-import type { RuntimeCatalog } from "../../main/runtime.ts";
+import type { RuntimeCatalog } from "../../engine/runtime.ts";
 import { Button } from "@/components/ui/button.tsx";
 import {
   Dialog,

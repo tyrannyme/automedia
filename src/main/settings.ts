@@ -1,7 +1,7 @@
 import path from "node:path";
 import * as v from "valibot";
 import { appSettingsSchema, type AppSettings } from "@shared/schemas.ts";
-import { pathExists, readBytes, writeAtomic } from "./fs.ts";
+import { pathExists, readBytes, writeAtomic } from "../engine/fs.ts";
 
 const defaultSettings: AppSettings = { lastCompositionId: null };
 

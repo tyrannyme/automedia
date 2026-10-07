@@ -54,6 +54,23 @@ export default defineConfig({
   },
   overrides: [
     {
+      // The engine runs under plain Node, shared by agents and the studio.
+      files: ["src/engine/**/*.ts", "src/cli/**/*.ts"],
+      rules: {
+        "no-restricted-imports": [
+          "error",
+          {
+            paths: [
+              {
+                name: "electron",
+                message: "The engine runs under plain Node. Keep Electron in src/main.",
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
       files: ["src/renderer/**/*.{ts,tsx}"],
       env: {
         browser: true,
@@ -62,6 +79,8 @@ export default defineConfig({
     {
       files: [
         "src/main/**/*.ts",
+        "src/engine/**/*.ts",
+        "src/cli/**/*.ts",
         "src/preload/**/*.ts",
         "src/shared/**/*.ts",
         "*.config.ts",

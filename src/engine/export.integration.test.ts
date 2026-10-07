@@ -1,0 +1,106 @@
+import { existsSync } from "node:fs";
+import { mkdtemp, rm } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { chromium } from "playwright";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { ExportQueue } from "./export.ts";
+import { startEngine, type RunningEngine } from "./engine.ts";
+import { CompositionStore } from "./store.ts";
+import { writeExample } from "./examples/index.ts";
+
+const missing = existsSync(chromium.executablePath()) ? [] : ["Playwright Chromium"];
+const prerequisiteMessage = missing.length > 0 ? `missing ${missing.join(", ")}` : "";
+
+describe("export integration prerequisites", () => {
+  it.skipIf(missing.length > 0)(prerequisiteMessage || "Playwright Chromium is available", () => {
+    expect(missing).toEqual([]);
+  });
+});
+
+const integration = describe.skipIf(missing.length > 0);
+
+async function waitForFilesGone(paths: readonly string[], timeoutMs = 30_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (paths.every((filePath) => !existsSync(filePath))) {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      if (paths.every((filePath) => !existsSync(filePath))) {
+        return;
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error(`timed out waiting for files to disappear: ${paths.join(", ")}`);
+}
+
+integration("export integration", () => {
+  let root: string;
+  let store: CompositionStore;
+  let queue: ExportQueue;
+  let engine: RunningEngine | undefined;
+
+  beforeEach(async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), "automedia-export-int-"));
+    engine = await startEngine(root, { port: 0 });
+    store = engine.store;
+    queue = engine.queue;
+  });
+
+  afterEach(async () => {
+    await engine?.close();
+    await rm(root, { recursive: true, force: true });
+  });
+
+  async function waitForPhase(jobId: string, phases: ReadonlySet<string>, timeoutMs = 90_000) {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      const job = queue.get(jobId);
+      if (phases.has(job.phase)) {
+        return job;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    throw new Error(`timed out waiting for export ${jobId} to reach ${[...phases].join(", ")}`);
+  }
+
+  it("allows PNG but rejects MP4 for an 801x601 composition", async () => {
+    const composition = await store.create();
+    await store.updateSettings({ compositionId: composition.id, width: 801, height: 601 });
+
+    await expect(
+      queue.start({ compositionId: composition.id, format: "mp4" }),
+    ).rejects.toMatchObject({ code: "odd_dimensions" });
+
+    const job = await queue.start({ compositionId: composition.id, format: "png" });
+    const completed = await waitForPhase(job.id, new Set(["completed", "failed"]));
+    expect(completed.phase).toBe("completed");
+    expect(completed.contentUrl).toContain(`/exports/${job.id}`);
+  }, 90_000);
+
+  it("exports video whose frames stop changing", async () => {
+    // The clock animates for 2 seconds; the last second repeats one frame.
+    const composition = await writeExample(store, "css-clock");
+    await store.updateSettings({ compositionId: composition.id, durationSeconds: 3 });
+
+    const job = await queue.start({ compositionId: composition.id, format: "webm" });
+    const completed = await waitForPhase(job.id, new Set(["completed", "failed"]), 60_000);
+    expect(completed.error).toBeUndefined();
+    expect(completed.phase).toBe("completed");
+  }, 90_000);
+
+  it("cancels proof MP4 during capture and leaves no output or temporary file", async () => {
+    const composition = await writeExample(store, "proof");
+    const job = await queue.start({ compositionId: composition.id, format: "mp4", quality: 80 });
+    await waitForPhase(job.id, new Set(["capturing", "encoding"]));
+
+    const canceled = queue.cancel(job.id);
+    expect(canceled.phase).toBe("canceled");
+    const settled = await waitForPhase(job.id, new Set(["canceled", "failed", "completed"]));
+    expect(settled.phase).toBe("canceled");
+
+    const outputPath = path.join(store.compositionDir(composition.id), "exports", `${job.id}.mp4`);
+    const tempPath = `${outputPath}.automedia-tmp.mp4`;
+    await waitForFilesGone([outputPath, tempPath]);
+  }, 90_000);
+});

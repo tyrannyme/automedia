@@ -1,5 +1,5 @@
-import type { ExportJob } from "../../main/export.ts";
-import type { StudioEvent } from "../../main/events.ts";
+import type { ExportJob } from "../../engine/export.ts";
+import type { StudioEvent } from "../../engine/events.ts";
 import { isMusicPatternPath } from "@shared/music-paths.ts";
 import { codeFileFromPath, type CodeFile } from "./block-paths.ts";
 import { isThumbnailStudioEvent } from "./studio-events.ts";

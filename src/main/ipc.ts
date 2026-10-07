@@ -1,41 +1,17 @@
-import { copyFile } from "node:fs/promises";
-import path from "node:path";
 import { app, dialog, ipcMain, shell, type IpcMainInvokeEvent } from "electron";
 import * as v from "valibot";
 import { AppError, toErrorObject } from "@shared/errors.ts";
 import { Result } from "better-result";
 import { appInfoSchema, ipcChannels, type IpcResult } from "@shared/ipc.ts";
 import { imageExtensions, mediaExtensions } from "@shared/limits.ts";
-import { isAssetExtension } from "@shared/media.ts";
-import {
-  controlIdSchema,
-  controlSchema,
-  idSchema,
-  markerSchema,
-  mediaTrackSchema,
-  probeMediaInputSchema,
-  readFileInputSchema,
-  startExportInputSchema,
-  updateSettingsSchema,
-  writeFileInputSchema,
-  appSettingsSchema,
-} from "@shared/schemas.ts";
-import { logOperation } from "./activity.ts";
-import type { ActivityDetail } from "./events.ts";
-import { EventBus } from "./events.ts";
-import { ExportQueue, listExports, type ExportJob } from "./export.ts";
-import { createId, pathExists, readBytes, resolveInside } from "./fs.ts";
-import { probeFile } from "./probe.ts";
-import { runtimeCatalog } from "./runtime.ts";
-import { readSettings, writeSettings } from "./settings.ts";
-import { CompositionStore } from "./store.ts";
-import { validateComposition, type LoopbackUrlSource } from "./validate.ts";
-import { writeExample, type ExampleId } from "./examples/index.ts";
+import { appSettingsSchema, idSchema } from "@shared/schemas.ts";
 import {
   ensureProjectArchiveExtension,
   projectArchiveExtension,
   projectArchiveFileName,
 } from "@shared/project-archive.ts";
+import type { Engine, OperationName } from "../engine/operations.ts";
+import { readSettings, writeSettings } from "./settings.ts";
 
 export function handleIpc<TSchema extends v.GenericSchema, TOutput>(
   channel: string,
@@ -60,31 +36,20 @@ export function handleIpc<TSchema extends v.GenericSchema, TOutput>(
   });
 }
 
-type IpcOptions = {
-  store: CompositionStore;
-  queue: ExportQueue;
-  events: EventBus;
-  userData: string;
-  loopbackUrl?: LoopbackUrlSource;
-  loopSeam?: (compositionId: string) => Promise<{ match: boolean }>;
-};
-
 const noArgs = v.undefined();
 const compositionInput = v.object({ compositionId: idSchema });
+/** The engine parses every operation's input, so forwarded calls pass it through. */
+const engineInput = v.any();
 
-export function registerIpcHandlers({
-  store,
-  queue,
-  events,
-  userData,
-  loopbackUrl,
-  loopSeam,
-}: IpcOptions): void {
-  const record = (
-    operation: string,
-    compositionId: string,
-    detail?: ActivityDetail,
-  ): Promise<void> => logOperation(store, events, operation, compositionId, detail);
+/**
+ * The studio is a client of the engine. Library calls go to it unchanged;
+ * this process keeps only what needs a window: settings, file dialogs, and
+ * revealing files.
+ */
+export function registerIpcHandlers(engine: Engine, userData: string): void {
+  const forward = (channel: string, operation: OperationName) => {
+    handleIpc(channel, engineInput, (input) => engine.call(operation, input));
+  };
 
   handleIpc(ipcChannels.app.getInfo, noArgs, () =>
     v.parse(appInfoSchema, { name: app.getName(), version: app.getVersion() }),
@@ -94,288 +59,86 @@ export function registerIpcHandlers({
     writeSettings(userData, settings),
   );
 
-  handleIpc(ipcChannels.compositions.list, noArgs, () => store.list());
-  handleIpc(ipcChannels.compositions.get, compositionInput, ({ compositionId }) =>
-    store.get(compositionId),
-  );
-  handleIpc(
-    ipcChannels.compositions.create,
-    v.optional(
-      v.object({
-        name: v.optional(v.pipe(v.string(), v.minLength(1))),
-        example: v.optional(v.string()),
-      }),
-    ),
-    async (input) => {
-      // SAFETY: writeExample performs the runtime unknown-example check for this user input.
-      const composition =
-        input?.example !== undefined
-          ? await writeExample(store, input.example as ExampleId)
-          : await store.create(input?.name);
-      if (input?.example !== undefined && input.name) {
-        await store.updateSettings({ compositionId: composition.id, name: input.name });
-      }
-      await record("create_composition", composition.id, { name: input?.name ?? composition.name });
-      return store.get(composition.id);
-    },
-  );
-  handleIpc(ipcChannels.compositions.updateSettings, updateSettingsSchema, async (input) => {
-    const composition = await store.updateSettings(input);
-    await record("update_settings", composition.id, input);
-    return composition;
-  });
-  handleIpc(ipcChannels.compositions.remove, compositionInput, async ({ compositionId }) => {
-    await store.get(compositionId);
-    await record("delete_composition", compositionId);
-    await store.remove(compositionId);
-  });
-  handleIpc(ipcChannels.compositions.duplicate, compositionInput, async ({ compositionId }) => {
-    const composition = await store.duplicate(compositionId);
-    await record("create_composition", composition.id, { name: composition.name });
-    return composition;
-  });
+  forward(ipcChannels.compositions.list, "listCompositions");
+  forward(ipcChannels.compositions.get, "getComposition");
+  forward(ipcChannels.compositions.create, "createComposition");
+  forward(ipcChannels.compositions.updateSettings, "updateSettings");
+  forward(ipcChannels.compositions.remove, "deleteComposition");
+  forward(ipcChannels.compositions.duplicate, "duplicateComposition");
+  forward(ipcChannels.compositions.reorder, "reorderCompositions");
+  forward(ipcChannels.compositions.loopSeam, "checkLoopSeam");
   handleIpc(ipcChannels.compositions.saveProject, compositionInput, async ({ compositionId }) => {
-    const composition = await store.get(compositionId);
+    const composition = await engine.call("getComposition", { compositionId });
     const result = await dialog.showSaveDialog({
       defaultPath: projectArchiveFileName(composition.name),
       filters: [{ name: "Automedia project", extensions: [projectArchiveExtension] }],
     });
     if (result.canceled || !result.filePath) return null;
-    const dest = ensureProjectArchiveExtension(result.filePath);
-    await store.saveProject(compositionId, dest, app.getVersion(), runtimeCatalog);
-    return { path: dest };
+    return engine.call("saveProject", {
+      compositionId,
+      path: ensureProjectArchiveExtension(result.filePath),
+    });
   });
   handleIpc(ipcChannels.compositions.importProject, noArgs, async () => {
     const result = await dialog.showOpenDialog({
       properties: ["openFile"],
       filters: [{ name: "Automedia project", extensions: [projectArchiveExtension] }],
     });
-    if (result.canceled || result.filePaths.length === 0) return null;
     const source = result.filePaths[0];
-    if (!source) return null;
-    const imported = await store.importProject(source, runtimeCatalog);
-    await record("create_composition", imported.composition.id, {
-      name: imported.composition.name,
-    });
-    return imported;
-  });
-  handleIpc(ipcChannels.compositions.reorder, v.object({ ids: v.array(idSchema) }), ({ ids }) =>
-    store.reorder(ids),
-  );
-  handleIpc(ipcChannels.compositions.loopSeam, compositionInput, async ({ compositionId }) => {
-    await store.get(compositionId);
-    if (!loopSeam) throw new AppError("internal", "loop seam is not ready");
-    return loopSeam(compositionId);
+    if (result.canceled || !source) return null;
+    return engine.call("importProject", { path: source });
   });
 
-  handleIpc(ipcChannels.files.list, compositionInput, ({ compositionId }) =>
-    store.listFiles(compositionId),
-  );
-  handleIpc(ipcChannels.files.read, readFileInputSchema, ({ compositionId, path: relativePath }) =>
-    store.readFile(compositionId, relativePath),
-  );
-  handleIpc(ipcChannels.files.write, writeFileInputSchema, async (input) => {
-    const file = await store.writeFile(
-      input.compositionId,
-      input.path,
-      input.encoding,
-      input.content,
-      input.expectedEtag,
-    );
-    await record("write_file", input.compositionId, { path: input.path });
-    return file;
-  });
-  handleIpc(
-    ipcChannels.files.delete,
-    readFileInputSchema,
-    async ({ compositionId, path: relativePath }) => {
-      await store.deleteFile(compositionId, relativePath);
-      await record("delete_file", compositionId, { path: relativePath });
-    },
-  );
+  forward(ipcChannels.files.list, "listFiles");
+  forward(ipcChannels.files.read, "readFile");
+  forward(ipcChannels.files.write, "writeFile");
+  forward(ipcChannels.files.delete, "deleteFile");
 
-  handleIpc(ipcChannels.media.get, compositionInput, ({ compositionId }) =>
-    store.getMedia(compositionId),
-  );
-  handleIpc(ipcChannels.media.probe, probeMediaInputSchema, async ({ compositionId, asset }) => {
-    await store.get(compositionId);
-    const filePath = resolveInside(path.join(store.compositionDir(compositionId), "assets"), asset);
-    return probeFile(filePath);
-  });
-  handleIpc(
-    ipcChannels.media.createBlock,
-    v.object({
-      compositionId: idSchema,
-      name: v.optional(v.string()),
-      start: v.optional(v.pipe(v.number(), v.minValue(0))),
-      lane: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0))),
-    }),
-    async ({ compositionId, name, start, lane }) => {
-      const track = await store.createBlock(compositionId, name, start, lane);
-      await record("put_track", compositionId, { trackId: track.id });
-      return track;
-    },
-  );
-  handleIpc(
-    ipcChannels.media.createMusicBlock,
-    v.object({
-      compositionId: idSchema,
-      name: v.optional(v.string()),
-      start: v.optional(v.pipe(v.number(), v.minValue(0))),
-      lane: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0))),
-    }),
-    async ({ compositionId, name, start, lane }) => {
-      const track = await store.createMusicBlock(compositionId, name, start, lane);
-      await record("put_track", compositionId, { trackId: track.id });
-      return track;
-    },
-  );
-  handleIpc(
-    ipcChannels.media.putTrack,
-    v.object({ compositionId: idSchema, track: mediaTrackSchema }),
-    async ({ compositionId, track }) => {
-      const media = await store.putTrack(compositionId, track);
-      await record("put_track", compositionId, { trackId: track.id });
-      return media;
-    },
-  );
-  handleIpc(
-    ipcChannels.media.deleteTrack,
-    v.object({ compositionId: idSchema, trackId: idSchema }),
-    async ({ compositionId, trackId }) => {
-      const media = await store.deleteTrack(compositionId, trackId);
-      await record("delete_track", compositionId, { trackId });
-      return media;
-    },
-  );
-  handleIpc(
-    ipcChannels.media.putMarker,
-    v.object({ compositionId: idSchema, marker: markerSchema }),
-    async ({ compositionId, marker }) => {
-      const media = await store.putMarker(compositionId, marker);
-      await record("put_marker", compositionId, { markerId: marker.id });
-      return media;
-    },
-  );
-  handleIpc(
-    ipcChannels.media.deleteMarker,
-    v.object({ compositionId: idSchema, markerId: idSchema }),
-    async ({ compositionId, markerId }) => {
-      const media = await store.deleteMarker(compositionId, markerId);
-      await record("delete_marker", compositionId, { markerId });
-      return media;
-    },
-  );
+  forward(ipcChannels.media.get, "getMedia");
+  forward(ipcChannels.media.probe, "probeMedia");
+  forward(ipcChannels.media.createBlock, "createBlock");
+  forward(ipcChannels.media.createMusicBlock, "createMusicBlock");
+  forward(ipcChannels.media.putTrack, "putTrack");
+  forward(ipcChannels.media.deleteTrack, "deleteTrack");
+  forward(ipcChannels.media.putMarker, "putMarker");
+  forward(ipcChannels.media.deleteMarker, "deleteMarker");
 
-  handleIpc(ipcChannels.controls.get, compositionInput, ({ compositionId }) =>
-    store.getControls(compositionId),
-  );
-  handleIpc(
-    ipcChannels.controls.put,
-    v.object({ compositionId: idSchema, control: controlSchema }),
-    async ({ compositionId, control }) => {
-      const document = await store.putControl(compositionId, control);
-      await record("put_control", compositionId, { controlId: control.id });
-      return document;
-    },
-  );
-  handleIpc(
-    ipcChannels.controls.delete,
-    v.object({ compositionId: idSchema, controlId: controlIdSchema }),
-    async ({ compositionId, controlId }) => {
-      const document = await store.deleteControl(compositionId, controlId);
-      await record("delete_control", compositionId, { controlId });
-      return document;
-    },
-  );
+  forward(ipcChannels.controls.get, "listControls");
+  forward(ipcChannels.controls.put, "putControl");
+  forward(ipcChannels.controls.delete, "deleteControl");
 
-  handleIpc(ipcChannels.activity.list, compositionInput, ({ compositionId }) =>
-    store.listActivity(compositionId),
-  );
-  handleIpc(ipcChannels.runtime.catalog, noArgs, () => runtimeCatalog);
-  handleIpc(ipcChannels.validate.run, compositionInput, async ({ compositionId }) => {
-    const composition = await store.get(compositionId);
-    const media = await store.getMedia(compositionId);
-    const report = await validateComposition(composition, media, loopbackUrl);
-    await record("validate", compositionId, { ok: report.ok });
-    return report;
-  });
+  forward(ipcChannels.activity.list, "getActivity");
+  forward(ipcChannels.runtime.catalog, "getRuntimeCatalog");
+  forward(ipcChannels.validate.run, "validate");
 
-  handleIpc(ipcChannels.export.start, startExportInputSchema, async (input) => {
-    const job = await queue.start(input);
-    await record("start_export", input.compositionId, { jobId: job.id, format: job.format });
-    return job;
-  });
-  handleIpc(ipcChannels.export.get, v.object({ jobId: idSchema }), ({ jobId }) => queue.get(jobId));
-  handleIpc(ipcChannels.export.cancel, v.object({ jobId: idSchema }), async ({ jobId }) => {
-    const job = queue.cancel(jobId);
-    await record("cancel_export", job.compositionId, { jobId });
-    return job;
-  });
-  handleIpc(ipcChannels.export.list, compositionInput, ({ compositionId }) =>
-    listExports(store, compositionId),
-  );
-  handleIpc(ipcChannels.export.jobs, noArgs, () => queue.listJobs());
+  forward(ipcChannels.export.start, "startExport");
+  forward(ipcChannels.export.get, "getExport");
+  forward(ipcChannels.export.cancel, "cancelExport");
+  forward(ipcChannels.export.list, "listExports");
+  forward(ipcChannels.export.jobs, "listExportJobs");
   handleIpc(ipcChannels.export.reveal, compositionInput, async ({ compositionId }) => {
-    const newest = (await listExports(store, compositionId))[0];
-    if (!newest) {
-      throw new AppError("not_found", "no exports exist");
-    }
-    shell.showItemInFolder(
-      path.join(store.compositionDir(compositionId), "exports", newest.fileName),
-    );
+    const newest = await engine.call("newestExport", { compositionId });
+    shell.showItemInFolder(newest.path);
   });
   handleIpc(ipcChannels.export.saveCopy, compositionInput, async ({ compositionId }) => {
-    const newest = (await listExports(store, compositionId))[0];
-    if (!newest) {
-      throw new AppError("not_found", "no exports exist");
-    }
+    const newest = await engine.call("newestExport", { compositionId });
     const result = await dialog.showSaveDialog({ defaultPath: newest.fileName });
-    if (result.canceled || !result.filePath) {
-      return;
-    }
-    await copyFile(
-      path.join(store.compositionDir(compositionId), "exports", newest.fileName),
-      result.filePath,
-    );
+    if (result.canceled || !result.filePath) return;
+    await engine.call("copyExport", {
+      compositionId,
+      fileName: newest.fileName,
+      destination: result.filePath,
+    });
   });
 
   handleIpc(ipcChannels.assets.import, compositionInput, async ({ compositionId }) => {
-    await store.get(compositionId);
+    await engine.call("getComposition", { compositionId });
     const result = await dialog.showOpenDialog({
       properties: ["openFile"],
       filters: [{ name: "Media", extensions: [...mediaExtensions, ...imageExtensions] }],
     });
-    if (result.canceled || result.filePaths.length === 0) {
-      return null;
-    }
     const source = result.filePaths[0];
-    if (!source) {
-      return null;
-    }
-    const sourceExtension = path.extname(source).slice(1).toLowerCase();
-    if (!isAssetExtension(sourceExtension)) {
-      throw new AppError("invalid_asset", "unsupported media extension");
-    }
-    const assetsDir = path.join(store.compositionDir(compositionId), "assets");
-    const originalName = path.basename(source).toLowerCase();
-    let asset = originalName;
-    if (await pathExists(path.join(assetsDir, asset))) {
-      asset = `${createId("a")}-${asset}`;
-    }
-    const bytes = await readBytes(source);
-    await store.writeFile(
-      compositionId,
-      path.posix.join("assets", asset),
-      "base64",
-      bytes.toString("base64"),
-      "",
-    );
-    await record("write_file", compositionId, {
-      path: path.posix.join("assets", asset),
-    });
-    return { asset };
+    if (result.canceled || !source) return null;
+    return engine.call("importAsset", { compositionId, source });
   });
 }
-
-export type { ExportJob };

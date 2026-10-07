@@ -5,6 +5,9 @@
   "description": "A local desktop studio for stills, animations, and video.",
   "license": "Apache-2.0",
   "author": "Kaf",
+  "bin": {
+    "automedia": "bin/automedia.cjs"
+  },
   "main": ".vite/build/main.js",
   "scripts": {
     "dev": "electron-forge start",
@@ -16,7 +19,8 @@
     "fmt": "oxfmt .",
     "fmt:check": "oxfmt --check .",
     "check": "oxlint . && oxfmt --check . && pnpm typecheck",
-    "test": "vitest run"
+    "test": "vitest run",
+    "build:cli": "vite build -c vite.cli.config.mts --mode automedia && vite build -c vite.cli.config.mts --mode automedia-engine && vite build -c vite.cli.config.mts --mode codec-worker"
   },
   "dependencies": {
     "@base-ui/react": "1.7.0",
@@ -79,7 +83,7 @@
     "vitest": "4.1.10"
   },
   "engines": {
-    "node": ">=22.12.0",
+    "node": ">=22.18.0",
     "pnpm": ">=11"
   },
   "packageManager": "pnpm@11.15.1",

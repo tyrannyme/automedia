@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ExportJob } from "../../main/export.ts";
+import type { ExportJob } from "../../engine/export.ts";
 import {
   exportDialogView,
   exportIsRunning,

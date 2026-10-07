@@ -7,7 +7,7 @@ import {
 import { useState } from "react";
 import { moveId } from "@shared/order.ts";
 import type { Composition, MediaTrack } from "@shared/schemas.ts";
-import type { ExampleId } from "../../main/examples/index.ts";
+import type { ExampleId } from "../../engine/examples/index.ts";
 import { LibraryPanel } from "@/components/library-panel.tsx";
 import { ProjectPoster } from "@/components/project-poster.tsx";
 import { Button } from "@/components/ui/button.tsx";

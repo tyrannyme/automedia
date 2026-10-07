@@ -52,7 +52,7 @@ const config: ForgeConfig = {
     extraResource: ["fixtures", "assets/icon.png"],
     asar: {
       unpack:
-        "{.vite/build/main.js,**/node_modules/{playwright,playwright-core,three,motion,motion-dom,motion-utils,framer-motion,vgpu,@tailwindcss,@strudel,@vgpu,node-av,@seydx,wasm-webp}/**}",
+        "{**/.vite/build/{main,automedia,automedia-engine,codec-worker}.js,**/node_modules/{playwright,playwright-core,three,motion,motion-dom,motion-utils,framer-motion,vgpu,@tailwindcss,@strudel,@vgpu,node-av,@seydx,wasm-webp}/**}",
     },
     executableName: "automedia",
     icon: "assets/icon",
@@ -75,10 +75,22 @@ const config: ForgeConfig = {
           config: "vite.preload.config.mts",
           target: "preload",
         },
+        // The command and engine run under the system's Node, so they are
+        // unpacked from the asar.
         {
-          entry: "src/preload/video-encoder.ts",
-          config: "vite.preload.config.mts",
-          target: "preload",
+          entry: "src/cli/automedia.ts",
+          config: "vite.main.config.mts",
+          target: "main",
+        },
+        {
+          entry: "src/cli/automedia-engine.ts",
+          config: "vite.main.config.mts",
+          target: "main",
+        },
+        {
+          entry: "src/engine/codec-worker.ts",
+          config: "vite.main.config.mts",
+          target: "main",
         },
       ],
       renderer: [

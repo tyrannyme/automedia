@@ -1,4 +1,4 @@
-import type { ExampleId } from "../../main/examples/index.ts";
+import type { ExampleId } from "../../engine/examples/index.ts";
 
 export type ExampleChoice = { value: ExampleId | "blank"; label: string };
 

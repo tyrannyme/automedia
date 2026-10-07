@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { ExportJob } from "../../main/export.ts";
+import type { ExportJob } from "../../engine/export.ts";
 import { exportNeedsQuality, isVideoExportFormat } from "@shared/media.ts";
 import type { ExportFormat } from "@shared/schemas.ts";
 import { Button } from "@/components/ui/button.tsx";

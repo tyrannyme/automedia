@@ -1,4 +1,4 @@
-import type { ExportJob, ExportPhase } from "../../main/export.ts";
+import type { ExportJob, ExportPhase } from "../../engine/export.ts";
 
 const runningPhaseOrder: readonly ExportPhase[] = [
   "queued",

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import type { ActivityEntry } from "../../main/activity.ts";
+import type { ActivityEntry } from "../../engine/activity.ts";
 import {
   Dialog,
   DialogContent,
