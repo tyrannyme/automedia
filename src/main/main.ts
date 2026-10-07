@@ -1,29 +1,20 @@
 import path from "node:path";
-import { app, BrowserWindow, nativeTheme } from "electron";
-import { EventBus } from "./events.ts";
-import { ExportQueue } from "./export.ts";
-import { startLoopbackServer } from "./http.ts";
-import { registerIpcHandlers } from "./ipc.ts";
-import { createMcpServer } from "./mcp.ts";
-import { CompositionStore } from "./store.ts";
-import { subscribeThumbnailMutations, ThumbnailService } from "./thumbnails.ts";
-import { loopbackHost, loopbackPort } from "@shared/limits.ts";
+import { app, BrowserWindow, dialog, nativeTheme } from "electron";
+import { resolveLoopbackPort } from "../engine/loopback.ts";
 import { cdpOrigin, resolveCdpPort } from "./cdp.ts";
+import { connectStudioEngine, type StudioEngine } from "./engine-process.ts";
+import { registerIpcHandlers } from "./ipc.ts";
 import { startUpdates } from "./updates.ts";
-import { registerVideoEncoderScheme } from "./chromium-video-encoder.ts";
 
 app.enableSandbox();
-registerVideoEncoderScheme();
 
-// CDP stays on localhost so agents can attach.
+// CDP stays on localhost so agents can attach to the studio window.
 app.commandLine.appendSwitch("remote-debugging-port", String(resolveCdpPort()));
 app.commandLine.appendSwitch("remote-debugging-address", "127.0.0.1");
 app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
 app.commandLine.appendSwitch("enable-unsafe-webgpu");
 
-let loopback: Awaited<ReturnType<typeof startLoopbackServer>> | undefined;
-let thumbnails: ThumbnailService | undefined;
-let unsubscribeThumbnailEvents: (() => void) | undefined;
+let studioEngine: StudioEngine | undefined;
 let shutdownPromise: Promise<void> | undefined;
 const titleBarHeight = 44;
 const appIconPath = app.isPackaged
@@ -92,57 +83,23 @@ app.on("ready", () => {
       applyNativeAppearance(window);
     }
   });
-  const store = new CompositionStore(app.getPath("userData"));
-  const events = new EventBus();
-  const loopbackUrl = () => loopback?.url ?? `http://${loopbackHost}:${loopbackPort}`;
-  const exports = new ExportQueue(
-    store,
-    (job) => {
-      events.emit({ type: "export", compositionId: job.compositionId, payload: job });
-    },
-    loopbackUrl,
-  );
-  const mcp = createMcpServer({ store, exports, events, loopbackUrl });
-  registerIpcHandlers({
-    store,
-    queue: exports,
-    events,
-    userData: app.getPath("userData"),
-    loopbackUrl,
-    loopSeam: async (compositionId) => {
-      if (!thumbnails) throw new Error("loop seam is not ready");
-      return { match: await thumbnails.compareLoopSeam(compositionId) };
-    },
-  });
-  startUpdates();
-  void startLoopbackServer({ store, mcp, events, exports })
-    .then((server) => {
-      loopback = server;
-      thumbnails = new ThumbnailService(store, {
-        baseUrl: server.url,
-        onReady: (compositionId) => {
-          events.emit({ type: "thumbnail_ready", compositionId });
-        },
-        onError: (compositionId, error) => {
-          console.error(`failed to generate thumbnail for ${compositionId}`, error);
-          events.emit({
-            type: "thumbnail_error",
-            compositionId,
-            payload: { code: "internal", message: error.message },
-          });
-        },
-      });
-      unsubscribeThumbnailEvents = subscribeThumbnailMutations(events, thumbnails);
-      // Existing projects are upgraded lazily in the background. App startup
-      // and the first paint never wait on Chromium or thumbnail I/O.
-      void thumbnails.backfill().catch((error) => {
-        console.error("failed to backfill composition thumbnails", error);
-      });
-      createWindow(server.port);
+  // The library lives in userData, so --user-data-dir picks another one.
+  const userData = app.getPath("userData");
+  const target = { port: resolveLoopbackPort(), library: userData, explicitLibrary: true };
+  void connectStudioEngine(target)
+    .then((connected) => {
+      studioEngine = connected;
+      registerIpcHandlers(connected.engine, userData);
+      startUpdates();
+      createWindow(connected.port);
       console.log(`cdp ${cdpOrigin()}`);
     })
     .catch((error) => {
-      console.error("failed to start loopback server", error);
+      console.error("failed to start the engine", error);
+      dialog.showErrorBox(
+        "Automedia could not start its engine",
+        error instanceof Error ? error.message : String(error),
+      );
       app.quit();
     });
 });
@@ -154,17 +111,15 @@ app.on("window-all-closed", () => {
 });
 
 app.on("activate", () => {
-  if (BrowserWindow.getAllWindows().length === 0 && loopback) {
-    createWindow(loopback.port);
+  if (BrowserWindow.getAllWindows().length === 0 && studioEngine) {
+    createWindow(studioEngine.port);
   }
 });
 
 app.on("before-quit", (event) => {
   if (shutdownPromise) return;
   event.preventDefault();
-  unsubscribeThumbnailEvents?.();
-  unsubscribeThumbnailEvents = undefined;
-  shutdownPromise = Promise.allSettled([thumbnails?.close(), loopback?.close()]).then(() => {
+  shutdownPromise = Promise.allSettled([studioEngine?.close()]).then(() => {
     app.quit();
   });
 });

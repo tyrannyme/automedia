@@ -1,10 +1,10 @@
 import * as v from "valibot";
-import type { ActivityEntry } from "../main/activity.ts";
-import type { ExportJob } from "../main/export.ts";
-import type { ProbeResult } from "../main/probe.ts";
-import type { ValidationReport } from "../main/validate.ts";
-import type { RuntimeCatalog } from "../main/runtime.ts";
-import type { ExampleId } from "../main/examples/index.ts";
+import type { ActivityEntry } from "../engine/activity.ts";
+import type { ExportJob } from "../engine/export.ts";
+import type { ProbeResult } from "../engine/probe.ts";
+import type { ValidationReport } from "../engine/validate.ts";
+import type { RuntimeCatalog } from "../engine/runtime.ts";
+import type { ExampleId } from "../engine/examples/index.ts";
 import type { ImportProjectResult } from "./project-archive.ts";
 import type {
   Composition,

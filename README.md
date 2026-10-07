@@ -9,13 +9,13 @@
   <a href="https://www.typescriptlang.org/"><picture><source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/badge/TypeScript-7-3178C6.svg?variant=secondary&amp;size=sm&amp;font=geist&amp;logo=typescript&amp;mode=dark"><img alt="TypeScript 7" src="https://shieldcn.dev/badge/TypeScript-7-3178C6.svg?variant=secondary&amp;size=sm&amp;font=geist&amp;logo=typescript&amp;mode=light"></picture></a>
 </p>
 
-Automedia is a local Electron studio for authoring browser-based stills, animations, and videos. A project is an HTML, CSS, and JavaScript document with composition settings, optional media tracks, timeline markers, and controls.
+Automedia is a local engine and studio for authoring browser-based stills, animations, and videos. A project is an HTML, CSS, and JavaScript document with composition settings, optional media tracks, timeline markers, and controls.
 
 The banner above is a PNG exported from Automedia — the same composition open in the studio shots below.
 
-The app serves each project from a localhost loopback server, previews it in Chromium, and drives it with a frame-based clock. The same renderer powers validation and export, so a successful validation checks the document that export will capture.
+The engine is a Node process that owns the library. It serves each project from a localhost loopback server, renders it in headless Chromium, and drives it with a frame-based clock. The same renderer powers validation and export, so a successful validation checks the document that export will capture.
 
-Agents can author projects through MCP. People can use the studio to edit source, scrub the timeline, adjust settings and controls, inspect validation, and export files.
+Agents author projects through MCP, and any number of them share one engine. The studio is an Electron window onto the same engine. People use it to edit source, scrub the timeline, adjust settings and controls, inspect validation, and export files. Agents never need it open.
 
 ## Studio
 
@@ -32,12 +32,12 @@ Dark and light chrome at the default window size. Export groups formats as video
 Regenerate the banner through the real export queue:
 
 ```bash
-README_BANNER=1 pnpm exec vitest run src/main/write-readme-banner.test.ts
+README_BANNER=1 pnpm exec vitest run src/engine/write-readme-banner.test.ts
 ```
 
 ## Requirements
 
-- Node.js 22.12 or newer
+- Node.js 22.18 or newer, on `PATH` for the studio as well: the engine runs under Node
 - pnpm 11 or newer
 - `sfw` (Socket Firewall) on `PATH`
 
@@ -58,7 +58,7 @@ pnpm exec playwright install chromium
 pnpm dev
 ```
 
-`pnpm start` is an alias. When the app opens, use `New` in the project sidebar to create a blank project or one of the built-in examples. The examples cover CSS animation, registered renderers, Motion, Three.js, Tailwind browser utilities, media, Strudel music, controls, transparency, and a deliberately broken script for testing validation errors.
+`pnpm start` is an alias. The studio uses the engine already serving its library, or starts one that lives as long as the window. When the app opens, use `New` in the project sidebar to create a blank project or one of the built-in examples. The examples cover CSS animation, registered renderers, Motion, Three.js, Tailwind browser utilities, media, Strudel music, controls, transparency, and a deliberately broken script for testing validation errors.
 
 ## Authoring model
 
@@ -152,24 +152,57 @@ export default function pattern(gain) {
 
 The default is the official Strudel getting-started showcase, rewritten onto built-in synths so it works offline. The bassline, lefthand voicings, and Euclidean snare figure stay; dirt-sample drums become sine/triangle/square hits. The studio opens a music editor for that file. The runtime wrapper, playback, mute, and volume stay managed and are not part of the HTML/CSS/JS block flow. Music clips are unmuted. Agents edit the pattern with `write_file` on `music/<asset>/pattern.js`. Sample banks are optional and need a network.
 
-## MCP and localhost services
+## Agents
 
-Start the app before connecting an MCP client. The default Streamable HTTP endpoint is:
+Agents connect over MCP. Build the `automedia` command once from a checkout:
 
-```text
-http://127.0.0.1:47821/mcp
+```bash
+pnpm build:cli
+pnpm link --global   # optional: puts `automedia` on PATH
 ```
 
-The app also exposes:
+Then give each agent a stdio server:
 
-- `GET /health` for a local health check
+```json
+{
+  "mcpServers": {
+    "automedia": {
+      "command": "automedia",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+Without the global link, use `"command": "node"` and `"args": ["/path/to/automedia/bin/automedia.cjs", "mcp"]`.
+
+`automedia mcp` is a small relay. It holds no state and renders nothing. On its first tool call it finds the engine for the library, or starts one in the background, and forwards every call to it. All agents share that engine and one headless Chromium, in which each validation, export, and thumbnail gets its own browser context. Exports run a few at a time, taken from each agent in turn, so one agent's batch cannot starve another's. The engine exits after 30 idle minutes, and the next call starts it again.
+
+```text
+automedia mcp       stdio MCP for one agent
+automedia daemon    run the engine in the foreground
+automedia status    show the running engine
+automedia stop      stop it
+```
+
+Options: `--library <dir>` serves another library (`AUTOMEDIA_LIBRARY`), and `--port <n>` runs a second engine beside the first (`AUTOMEDIA_LOOPBACK_PORT`). On `daemon`, `--idle-minutes <n>` sets the idle exit (`0` never exits), and `--export-slots <n>` and `--render-slots <n>` set how much runs at once. The defaults are one export per six cores, and one validation or thumbnail per four cores, between two and six. The default library is the studio's, so agents' compositions appear in the studio. An engine started in the background logs to `engine.log` in the library.
+
+Agents can share one library because the engine serves it alone. Claim a composition with `claim_composition` before writing it. Export jobs report an absolute `outputPath`.
+
+Thumbnails are for people, so the engine renders them only while a studio is open. Edits made with no studio open leave thumbnails stale until one connects.
+
+## Localhost services
+
+The engine listens on `127.0.0.1:47821`:
+
+- `POST /mcp` for Streamable HTTP MCP, for clients that prefer it to stdio
+- `POST /api/<operation>` for the studio and the stdio relays
+- `GET /health` for the engine's version, library, and process, and whether it is busy
 - `GET /events` for server-sent studio and export events
 - `GET /compositions/<id>/content/<path>` for rendered project files
 - `GET /compositions/<id>/exports/<job-id>` for completed exports
 
-All services bind to `127.0.0.1`. Chromium remote debugging is available at `http://127.0.0.1:47822` for local automation and inspection.
-
-Override either port when needed:
+The studio exposes Chromium remote debugging for its window at `http://127.0.0.1:47822`. Override either port when needed:
 
 ```bash
 AUTOMEDIA_LOOPBACK_PORT=49000 AUTOMEDIA_CDP_PORT=49001 pnpm dev
@@ -184,19 +217,20 @@ AUTOMEDIA_LOOPBACK_PORT=49000 AUTOMEDIA_CDP_PORT=49001 pnpm dev
 - Runtime: `get_runtime_catalog`, `get_runtime_types`
 - Quality and export: `validate`, `start_export`, `get_export`, `cancel_export`
 
-`delete_composition` moves a project into `.trash`. `workspace_status` reports export jobs and composition leases. Claim a composition before parallel writes. `start_export` runs validation first and queues jobs; one export runs at a time. Supported formats are PNG, GIF, WebP, MP4, WebM, MP3, WAV, and OGG. PNG can capture a single time; GIF, WebP, MP4, and WebM render the full composition. MP3, WAV, and OGG export audio only. MP4 and WebM require even dimensions and an opaque background.
+`delete_composition` moves a project into `.trash`. `workspace_status` reports export jobs and composition leases. Claim a composition before parallel writes. `start_export` runs validation first and queues jobs, which share the engine's export slots with every other agent's. Supported formats are PNG, GIF, WebP, MP4, WebM, MP3, WAV, and OGG. PNG can capture a single time; GIF, WebP, MP4, and WebM render the full composition. MP3, WAV, and OGG export audio only. MP4 and WebM require even dimensions and an opaque background.
 
 ## Scripts
 
 | Command                   | Purpose                                                      |
 | ------------------------- | ------------------------------------------------------------ |
-| `pnpm dev` / `pnpm start` | Start the Electron app and localhost services                |
+| `pnpm dev` / `pnpm start` | Start the studio, and the engine if none is running          |
 | `pnpm typecheck`          | Type-check the main process and renderer                     |
 | `pnpm lint`               | Run oxlint                                                   |
 | `pnpm fmt`                | Format with oxfmt                                            |
 | `pnpm fmt:check`          | Check formatting without changing files                      |
 | `pnpm check`              | Run lint, format checks, and typecheck                       |
 | `pnpm test`               | Run the Vitest unit and integration suite                    |
+| `pnpm build:cli`          | Build the `automedia` command for agents                     |
 | `pnpm package`            | Package the Electron app                                     |
 | `pnpm make`               | Build an AppImage (Linux) or installer (Windows), plus a zip |
 
@@ -207,7 +241,9 @@ Pushing a `vX.Y.Z` tag on `main` builds and publishes a GitHub release. The tag 
 ## Repository layout
 
 ```text
-src/main       Electron main process, store, loopback server, MCP, validation, export
+src/engine     Library store, loopback server, MCP, operations, render pool, validation, export
+src/cli        The automedia command: stdio MCP relay, engine daemon, status and stop
+src/main       Electron studio: window, dialogs, settings, updates; a client of the engine
 src/preload    Isolated contextBridge API
 src/renderer   React studio UI and state
 src/shared     Schemas, IPC contracts, clock, limits, and runtime types

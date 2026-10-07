@@ -96,8 +96,11 @@ Environment overrides: `AUTOMEDIA_RUN_DIR`, `AUTOMEDIA_CDP_PORT` (47922),
 `AUTOMEDIA_LOOPBACK_PORT` (47921), `SCHEME=light|dark` (driver, default dark).
 
 Renderer changes (`src/renderer/**`) hot-reload; add `await page.reload()` to
-the next snippet to get a clean state. Changes under `src/main/**` or
-`src/preload/**` need `app.sh stop && app.sh start`.
+the next snippet to get a clean state. Changes under `src/main/**`,
+`src/engine/**`, `src/cli/**`, or `src/preload/**` need
+`app.sh stop && app.sh start`. The studio starts its own engine (a Node
+process, `automedia-engine.js`) on the loopback port with the profile as its
+library, and `app.sh stop` stops both.
 
 ## Run (human path)
 

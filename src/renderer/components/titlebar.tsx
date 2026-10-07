@@ -1,5 +1,5 @@
 import { CheckIcon } from "@heroicons/react/24/outline";
-import type { ExportJob } from "../../main/export.ts";
+import type { ExportJob } from "../../engine/export.ts";
 import type { Composition } from "@shared/schemas.ts";
 import appIconUrl from "../../../assets/icon.png";
 import { Button } from "@/components/ui/button.tsx";

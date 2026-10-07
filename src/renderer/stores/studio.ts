@@ -1,12 +1,12 @@
 import { create } from "zustand";
-import type { ActivityEntry } from "../../main/activity.ts";
-import type { ExportJob } from "../../main/export.ts";
-import type { RuntimeCatalog } from "../../main/runtime.ts";
-import type { ValidationReport } from "../../main/validate.ts";
+import type { ActivityEntry } from "../../engine/activity.ts";
+import type { ExportJob } from "../../engine/export.ts";
+import type { RuntimeCatalog } from "../../engine/runtime.ts";
+import type { ValidationReport } from "../../engine/validate.ts";
 import type { ExportFile } from "@shared/ipc.ts";
 import { addAssetToTimeline } from "@/lib/add-asset.ts";
 import type { Composition, Control, MediaDocument, MediaTrack, Marker } from "@shared/schemas.ts";
-import type { ExampleId } from "../../main/examples/index.ts";
+import type { ExampleId } from "../../engine/examples/index.ts";
 import { upsertById } from "@shared/collections.ts";
 import { contentDuration } from "@shared/duration.ts";
 import { firstBlockDirectory, blockDirectory, blockPaths } from "@/lib/block-paths.ts";

@@ -17,7 +17,9 @@ ready() {
 
 app_pids() {
   # Never `pkill -f` this pattern: it also matches the shell running this script.
-  pgrep -f "user-data-dir=$RUN_DIR/userdata" | grep -vx "$$" || true
+  # The studio starts its engine as a Node process serving the same profile.
+  pgrep -f "user-data-dir=$RUN_DIR/userdata|automedia-engine.js --library $RUN_DIR/userdata" |
+    grep -vx "$$" || true
 }
 
 case "${1:-}" in

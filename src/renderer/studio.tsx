@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { StudioEvent } from "../main/events.ts";
+import type { StudioEvent } from "../engine/events.ts";
 import type { ExportFormat } from "@shared/schemas.ts";
 import { CodePanes } from "@/components/code-panes.tsx";
 import { MusicEditor } from "@/components/music-editor.tsx";
