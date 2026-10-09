@@ -1,0 +1,14 @@
+{
+  "order": 5,
+  "name": "Data story",
+  "description": "An SVG chart that draws itself: lines trace in, the totals count up, and the callout lands on the peak.",
+  "tags": ["SVG", "Data viz"],
+  "settings": {
+    "width": 1280,
+    "height": 720,
+    "fps": 30,
+    "durationSeconds": 6,
+    "background": "#0A0A0A"
+  },
+  "poster": 5.2
+}

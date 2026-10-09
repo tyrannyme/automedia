@@ -1,0 +1,14 @@
+{
+  "order": 7,
+  "name": "Agent run",
+  "description": "Tailwind utilities for the layout, the Web Animations API for motion. Every animation is paused and set to the frame time.",
+  "tags": ["Tailwind", "Web Animations"],
+  "settings": {
+    "width": 1280,
+    "height": 720,
+    "fps": 30,
+    "durationSeconds": 7,
+    "background": "#0A0A0A"
+  },
+  "poster": 5.6
+}

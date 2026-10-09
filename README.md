@@ -4,6 +4,7 @@
 
 <p align="center">
   <a href="https://github.com/tyrannyme/automedia/actions/workflows/ci.yml"><picture><source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/github/tyrannyme/automedia/ci.svg?variant=outline&amp;size=sm&amp;font=geist&amp;animate=glow&amp;mode=dark"><img alt="CI status" src="https://shieldcn.dev/github/tyrannyme/automedia/ci.svg?variant=outline&amp;size=sm&amp;font=geist&amp;animate=glow&amp;mode=light"></picture></a>
+  <a href="https://automedia.tyranny.me"><picture><source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/badge/site-automedia.tyranny.me-71717A.svg?variant=secondary&amp;size=sm&amp;font=geist&amp;logo=googlechrome&amp;mode=dark"><img alt="Website" src="https://shieldcn.dev/badge/site-automedia.tyranny.me-71717A.svg?variant=secondary&amp;size=sm&amp;font=geist&amp;logo=googlechrome&amp;mode=light"></picture></a>
   <a href="LICENSE"><picture><source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/badge/license-Apache--2.0-71717A.svg?variant=secondary&amp;size=sm&amp;font=geist&amp;logo=apache&amp;mode=dark"><img alt="Apache 2.0 license" src="https://shieldcn.dev/badge/license-Apache--2.0-71717A.svg?variant=secondary&amp;size=sm&amp;font=geist&amp;logo=apache&amp;mode=light"></picture></a>
   <a href="https://www.electronjs.org/"><picture><source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/badge/Electron-43-47848F.svg?variant=secondary&amp;size=sm&amp;font=geist&amp;logo=electron&amp;mode=dark"><img alt="Electron 43" src="https://shieldcn.dev/badge/Electron-43-47848F.svg?variant=secondary&amp;size=sm&amp;font=geist&amp;logo=electron&amp;mode=light"></picture></a>
   <a href="https://www.typescriptlang.org/"><picture><source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/badge/TypeScript-7-3178C6.svg?variant=secondary&amp;size=sm&amp;font=geist&amp;logo=typescript&amp;mode=dark"><img alt="TypeScript 7" src="https://shieldcn.dev/badge/TypeScript-7-3178C6.svg?variant=secondary&amp;size=sm&amp;font=geist&amp;logo=typescript&amp;mode=light"></picture></a>
@@ -234,6 +235,17 @@ AUTOMEDIA_LOOPBACK_PORT=49000 AUTOMEDIA_CDP_PORT=49001 pnpm dev
 | `pnpm package`            | Package the Electron app                                     |
 | `pnpm make`               | Build an AppImage (Linux) or installer (Windows), plus a zip |
 
+## Website
+
+`site/` is [automedia.tyranny.me](https://automedia.tyranny.me): a static page served by a Cloudflare Worker. Every animation on it is a composition under `site/gallery/<id>/` (`meta.json`, `body.html`, `style.css`, `script.js`, plus any extra files) rendered through the real export queue into `site/public/gallery/`, along with the `gallery.json` manifest the page reads:
+
+```bash
+SITE_GALLERY=1 pnpm exec vitest run src/engine/write-site-gallery.test.ts
+SITE_GALLERY=1 SITE_GALLERY_ONLY=aurora,knot pnpm exec vitest run src/engine/write-site-gallery.test.ts
+```
+
+Deploy with `wrangler deploy` from `site/`.
+
 ## Releases
 
 Pushing a `vX.Y.Z` tag on `main` builds and publishes a GitHub release. The tag sets the version, so `package.json` is not bumped per release. The AppImage and the Windows installer check for a newer release hourly and offer it from the titlebar. The zips do not self-update.
@@ -248,6 +260,7 @@ src/preload    Isolated contextBridge API
 src/renderer   React studio UI and state
 src/shared     Schemas, IPC contracts, clock, limits, and runtime types
 fixtures       Media copied into media-backed examples
+site           automedia.tyranny.me and the compositions behind its gallery
 tools/oxlint   Local oxlint rules
 ```
 

@@ -39,3 +39,5 @@ coverage/
 
 # Local README banner export workspace
 .automedia-readme-banner/
+.automedia-site-gallery/
+site/.wrangler/

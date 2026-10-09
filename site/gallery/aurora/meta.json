@@ -1,0 +1,15 @@
+{
+  "order": 2,
+  "name": "Aurora",
+  "description": "A WGSL fragment shader on vGPU: curtains of light over a ridge line, deterministic on every frame.",
+  "tags": ["WebGPU", "vGPU", "WGSL"],
+  "settings": {
+    "width": 1280,
+    "height": 720,
+    "fps": 30,
+    "durationSeconds": 6,
+    "background": "#02040A"
+  },
+  "poster": 3.2,
+  "quality": 70
+}

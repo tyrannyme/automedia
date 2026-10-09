@@ -1,0 +1,14 @@
+{
+  "order": 8,
+  "name": "Launch story",
+  "description": "A 9:16 story for the feed. Countdown, confetti burst, title card. Confetti is seeded, so every export lands the same.",
+  "tags": ["9:16", "Canvas 2D", "Social"],
+  "settings": {
+    "width": 720,
+    "height": 1280,
+    "fps": 30,
+    "durationSeconds": 6,
+    "background": "#3B82F6"
+  },
+  "poster": 4.3
+}

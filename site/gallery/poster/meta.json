@@ -1,0 +1,94 @@
+{
+  "order": 9,
+  "name": "One template, four posters",
+  "description": "One composition with color, select, and range controls. Each poster is the same source exported with different control values.",
+  "tags": ["Controls", "Variants"],
+  "settings": {
+    "width": 720,
+    "height": 900,
+    "fps": 30,
+    "durationSeconds": 4,
+    "background": "#0A0A0A"
+  },
+  "poster": 2.2,
+  "quality": 70,
+  "controls": [
+    { "id": "accent", "type": "color", "label": "Accent", "value": "#F43F5E" },
+    { "id": "paper", "type": "color", "label": "Paper", "value": "#F5F5F5" },
+    {
+      "id": "motif",
+      "type": "select",
+      "label": "Motif",
+      "value": "circle",
+      "options": [
+        { "value": "circle", "label": "Circle" },
+        { "value": "bars", "label": "Bars" },
+        { "value": "grid", "label": "Grid" },
+        { "value": "arc", "label": "Arcs" }
+      ]
+    },
+    {
+      "id": "title",
+      "type": "select",
+      "label": "Title",
+      "value": "Render",
+      "options": [
+        { "value": "Render", "label": "Render" },
+        { "value": "Loop", "label": "Loop" },
+        { "value": "Frame", "label": "Frame" },
+        { "value": "Ship", "label": "Ship" }
+      ]
+    },
+    {
+      "id": "speed",
+      "type": "range",
+      "label": "Speed",
+      "value": 1,
+      "min": 0.25,
+      "max": 2,
+      "step": 0.25
+    }
+  ],
+  "variants": [
+    {
+      "name": "Render",
+      "controls": {
+        "accent": "#F43F5E",
+        "paper": "#F5F5F5",
+        "motif": "circle",
+        "title": "Render",
+        "speed": 1
+      }
+    },
+    {
+      "name": "Loop",
+      "controls": {
+        "accent": "#3B82F6",
+        "paper": "#0A0A0A",
+        "motif": "arc",
+        "title": "Loop",
+        "speed": 0.5
+      }
+    },
+    {
+      "name": "Frame",
+      "controls": {
+        "accent": "#0A0A0A",
+        "paper": "#EAB308",
+        "motif": "grid",
+        "title": "Frame",
+        "speed": 1
+      }
+    },
+    {
+      "name": "Ship",
+      "controls": {
+        "accent": "#22C55E",
+        "paper": "#171717",
+        "motif": "bars",
+        "title": "Ship",
+        "speed": 1.5
+      }
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+@font-face {
+  font-family: Poppins;
+  font-weight: 500;
+  src: url("fonts/poppins-500.woff2") format("woff2");
+}
+@font-face {
+  font-family: "DM Mono";
+  font-weight: 400;
+  src: url("fonts/dm-mono.woff2") format("woff2");
+}
+html,
+body {
+  margin: 0;
+  overflow: hidden;
+}
+canvas {
+  display: block;
+}
