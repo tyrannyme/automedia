@@ -1,0 +1,77 @@
+<style type="text/tailwindcss">
+  @theme {
+    --font-sans: Poppins, sans-serif;
+    --font-mono: "DM Mono", monospace;
+  }
+</style>
+<main
+  class="relative flex h-[720px] w-[1280px] items-center gap-16 overflow-hidden bg-neutral-950 px-24"
+>
+  <div
+    class="absolute -left-40 -top-40 size-[520px] rounded-full bg-blue-500/20 blur-3xl"
+    data-drift
+  ></div>
+  <div
+    class="absolute -bottom-48 right-0 size-[560px] rounded-full bg-fuchsia-500/15 blur-3xl"
+    data-drift
+  ></div>
+
+  <section class="relative z-10 w-[480px]" data-enter>
+    <p class="font-mono text-base uppercase tracking-[0.16em] text-neutral-500">automedia mcp</p>
+    <h1 class="mt-4 text-[64px] font-medium leading-[1.02] tracking-tight text-neutral-50">
+      Your agent just made a video.
+    </h1>
+    <p class="mt-6 text-xl text-neutral-400">Four tool calls. No timeline, no render farm.</p>
+  </section>
+
+  <ol class="relative z-10 flex w-[560px] flex-col gap-3">
+    <li
+      class="call flex items-center gap-4 rounded-2xl bg-neutral-900 px-5 py-4 ring-1 ring-white/5"
+    >
+      <span class="grid size-9 place-items-center rounded-xl bg-blue-500/15 text-blue-400">1</span>
+      <code class="flex-1 font-mono text-lg text-neutral-100">create_composition</code>
+      <span class="tick font-mono text-sm text-emerald-400">1920×1080</span>
+    </li>
+    <li
+      class="call flex items-center gap-4 rounded-2xl bg-neutral-900 px-5 py-4 ring-1 ring-white/5"
+    >
+      <span class="grid size-9 place-items-center rounded-xl bg-violet-500/15 text-violet-400"
+        >2</span
+      >
+      <code class="flex-1 font-mono text-lg text-neutral-100"
+        >write_file <span class="text-neutral-500">script.js</span></code
+      >
+      <span class="tick font-mono text-sm text-emerald-400">+184 lines</span>
+    </li>
+    <li
+      class="call flex items-center gap-4 rounded-2xl bg-neutral-900 px-5 py-4 ring-1 ring-white/5"
+    >
+      <span class="grid size-9 place-items-center rounded-xl bg-amber-500/15 text-amber-400"
+        >3</span
+      >
+      <code class="flex-1 font-mono text-lg text-neutral-100">validate</code>
+      <span class="tick font-mono text-sm text-emerald-400">0 issues</span>
+    </li>
+    <li class="call flex flex-col gap-3 rounded-2xl bg-neutral-900 px-5 py-4 ring-1 ring-white/5">
+      <div class="flex items-center gap-4">
+        <span class="grid size-9 place-items-center rounded-xl bg-rose-500/15 text-rose-400"
+          >4</span
+        >
+        <code class="flex-1 font-mono text-lg text-neutral-100"
+          >start_export <span class="text-neutral-500">mp4</span></code
+        >
+        <span id="percent" class="font-mono text-sm text-neutral-400">0%</span>
+      </div>
+      <div class="h-2 overflow-hidden rounded-full bg-neutral-800">
+        <div id="bar" class="h-full w-full origin-left rounded-full bg-neutral-100"></div>
+      </div>
+    </li>
+    <li class="call flex items-center gap-4 rounded-2xl bg-neutral-50 px-5 py-4 text-neutral-950">
+      <svg class="size-9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="m5 12.5 4.5 4.5L19 7.5" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+      <code class="flex-1 font-mono text-lg">launch.mp4</code>
+      <span class="font-mono text-sm text-neutral-500">12.4 MB · 00:15</span>
+    </li>
+  </ol>
+</main>

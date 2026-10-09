@@ -1,0 +1,14 @@
+{
+  "order": 11,
+  "name": "Pure CSS",
+  "description": "No script at all. CSS keyframes with staggered delays, and the frame clock seeks them exactly.",
+  "tags": ["CSS keyframes", "No JS"],
+  "settings": {
+    "width": 1280,
+    "height": 720,
+    "fps": 30,
+    "durationSeconds": 4,
+    "background": "#0A0A0A"
+  },
+  "poster": 1.1
+}

@@ -1,0 +1,15 @@
+{
+  "order": 3,
+  "name": "Chrome knot",
+  "description": "Three.js with physical materials and orbiting lights. The renderer reads the frame clock, so every export lands on the same frame.",
+  "tags": ["Three.js", "3D"],
+  "settings": {
+    "width": 1280,
+    "height": 720,
+    "fps": 30,
+    "durationSeconds": 6,
+    "background": "#08080B"
+  },
+  "poster": 1.7,
+  "quality": 70
+}

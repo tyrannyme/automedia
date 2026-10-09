@@ -1,0 +1,495 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Automedia: HTML in, video out</title>
+    <meta
+      name="description"
+      content="Automedia renders HTML, CSS, and JavaScript into MP4, WebM, GIF, WebP, PNG, and audio, frame-exact, on your own machine. Agents author over MCP. You scrub, tweak, and export in the studio."
+    />
+    <meta name="theme-color" content="#000000" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="canonical" href="https://automedia.tyranny.me/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Automedia" />
+    <meta property="og:url" content="https://automedia.tyranny.me/" />
+    <meta property="og:title" content="Automedia: HTML in, video out" />
+    <meta
+      property="og:description"
+      content="A local studio and render engine for stills, animation, video, and music written as web pages. Agents write them over MCP."
+    />
+    <meta property="og:image" content="https://automedia.tyranny.me/gallery/opener.png" />
+    <meta
+      property="og:image:alt"
+      content="The Automedia title card: the viewfinder mark, the wordmark, and a timeline with colored clips and a red playhead"
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link
+      rel="preload"
+      href="/fonts/poppins-latin-500-normal.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="/fonts/poppins-latin-400-normal.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link rel="stylesheet" href="/style.css" />
+    <script src="/main.js" type="module"></script>
+  </head>
+  <body>
+    <header class="nav">
+      <a class="logo" href="/" aria-label="Automedia home">
+        <svg aria-hidden="true"><use href="#mark" /></svg>
+        <span>Automedia</span>
+      </a>
+      <nav aria-label="Sections">
+        <a href="#gallery">Gallery</a>
+        <a href="#how">How it works</a>
+        <a href="#agents">Agents</a>
+        <a href="#studio">Studio</a>
+        <a href="https://github.com/tyrannyme/automedia">GitHub</a>
+      </nav>
+      <a class="button small" href="#download">Download</a>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="kicker">
+            <span class="rec" aria-hidden="true"></span><span data-version>v0.3.0</span> · Linux and
+            Windows · Apache 2.0
+          </p>
+          <h1>HTML in.<br /><em>Video out.</em></h1>
+          <p class="lead">
+            Automedia is a local studio and render engine for stills, animation, video, and music
+            written as web pages. Your agents write them over MCP. You scrub, tweak, and export.
+          </p>
+          <div class="ctas">
+            <a class="button" href="#download">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19.5h14" />
+              </svg>
+              <span data-download-label>Download</span>
+            </a>
+            <a class="button ghost" href="#gallery">See the gallery</a>
+          </div>
+        </div>
+
+        <figure class="reel" aria-label="Showreel">
+          <div class="reel-stage" data-reel-stage>
+            <video data-reel muted playsinline preload="auto" poster="/gallery/opener.png"></video>
+            <p class="reel-tag">
+              <span class="rec" aria-hidden="true"></span>Every frame here is an Automedia export
+            </p>
+          </div>
+          <div class="reel-transport">
+            <button class="icon-button" type="button" data-reel-toggle aria-label="Pause showreel">
+              <svg viewBox="0 0 24 24" aria-hidden="true" data-icon="pause">
+                <path d="M8 5v14M16 5v14" />
+              </svg>
+              <svg viewBox="0 0 24 24" aria-hidden="true" data-icon="play" hidden>
+                <path d="M7 5.5v13l11-6.5-11-6.5Z" />
+              </svg>
+            </button>
+            <span class="timecode" data-reel-time>00:00:00:00</span>
+            <span class="frames" data-reel-frame>0 / 0</span>
+            <span class="reel-name" data-reel-name>Opener</span>
+          </div>
+          <div class="reel-timeline" data-reel-timeline>
+            <div class="ruler" aria-hidden="true"></div>
+            <div class="lane" data-reel-lane></div>
+            <div class="playhead" data-reel-playhead aria-hidden="true"></div>
+          </div>
+        </figure>
+      </section>
+
+      <section class="strip" aria-label="Formats and libraries">
+        <div class="marquee">
+          <ul>
+            <li>MP4</li>
+            <li>WebM</li>
+            <li>GIF</li>
+            <li>WebP</li>
+            <li>PNG</li>
+            <li>MP3</li>
+            <li>WAV</li>
+            <li>OGG</li>
+            <li class="lib">Three.js</li>
+            <li class="lib">Motion</li>
+            <li class="lib">Tailwind</li>
+            <li class="lib">Strudel</li>
+            <li class="lib">vGPU</li>
+            <li class="lib">WebGPU</li>
+            <li class="lib">Canvas</li>
+            <li class="lib">SVG</li>
+            <li class="lib">CSS keyframes</li>
+          </ul>
+          <ul aria-hidden="true">
+            <li>MP4</li>
+            <li>WebM</li>
+            <li>GIF</li>
+            <li>WebP</li>
+            <li>PNG</li>
+            <li>MP3</li>
+            <li>WAV</li>
+            <li>OGG</li>
+            <li class="lib">Three.js</li>
+            <li class="lib">Motion</li>
+            <li class="lib">Tailwind</li>
+            <li class="lib">Strudel</li>
+            <li class="lib">vGPU</li>
+            <li class="lib">WebGPU</li>
+            <li class="lib">Canvas</li>
+            <li class="lib">SVG</li>
+            <li class="lib">CSS keyframes</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="gallery" id="gallery">
+        <div class="section-head">
+          <p class="label">Gallery</p>
+          <h2>Twelve compositions. Every frame rendered by Automedia.</h2>
+          <p>
+            Each one is an HTML, CSS, and JavaScript document. Open any of them to read the source
+            and grab the file it exported.
+          </p>
+        </div>
+        <div class="grid" data-gallery>
+          <p class="muted" data-gallery-status>Loading the gallery…</p>
+        </div>
+      </section>
+
+      <section class="how" id="how">
+        <div class="section-head">
+          <p class="label">How it works</p>
+          <h2>A web page with a clock.</h2>
+          <p>
+            Automedia seeks your document to every frame instead of recording it in real time. Slow
+            scenes don't drop frames, and the same frame always renders the same pixels.
+          </p>
+        </div>
+        <ol class="steps">
+          <li class="step">
+            <span class="step-num">01</span>
+            <h3>Write a page</h3>
+            <p>
+              A project is a folder of HTML, CSS, and JS. Draw with whatever the browser has:
+              Canvas, SVG, WebGL, WebGPU, or plain CSS.
+            </p>
+            <pre class="code"><code data-highlight="js">window.automedia.registerRenderer(
+  ({ timeSeconds, frame, controls }) => {
+    ball.style.translate =
+      `${timeSeconds * 240}px 0`;
+  },
+);</code></pre>
+          </li>
+          <li class="step">
+            <span class="step-num">02</span>
+            <h3>The clock drives it</h3>
+            <p>
+              Headless Chromium renders each frame on a frame-based clock. CSS keyframes, Web
+              Animations, Motion, and Three.js all land on the exact time.
+            </p>
+            <div class="filmstrip" aria-label="Seven frames of the Kinetic type composition">
+              <img src="/img/frames.webp" width="2240" height="180" alt="" loading="lazy" />
+            </div>
+          </li>
+          <li class="step">
+            <span class="step-num">03</span>
+            <h3>Export anything</h3>
+            <p>
+              Video, stills, and audio encode in-process with Mediabunny. No FFmpeg to install.
+              Validation runs the same renderer as export, so what passes is what ships.
+            </p>
+            <ul class="chips">
+              <li>MP4</li>
+              <li>WebM</li>
+              <li>GIF</li>
+              <li>WebP</li>
+              <li>PNG</li>
+              <li>MP3</li>
+              <li>WAV</li>
+              <li>OGG</li>
+            </ul>
+          </li>
+        </ol>
+      </section>
+
+      <section class="agents" id="agents">
+        <div class="agents-copy">
+          <p class="label">For agents</p>
+          <h2>Your agents write it. You watch it land.</h2>
+          <p>
+            Any number of agents share one engine over MCP. They create compositions, write files,
+            validate, and queue exports. Exports are taken from each agent in turn, so one agent's
+            batch never starves another's.
+          </p>
+          <div class="config">
+            <div class="config-head">
+              <span>.mcp.json</span>
+              <button class="copy" type="button" data-copy="config">Copy</button>
+            </div>
+            <pre class="code"><code data-highlight="json" id="config">{
+  "mcpServers": {
+    "automedia": {
+      "command": "automedia",
+      "args": ["mcp"]
+    }
+  }
+}</code></pre>
+          </div>
+          <p class="fineprint">
+            Build the command once from a checkout with <code>pnpm build:cli</code>, then
+            <code>pnpm link --global</code>.
+          </p>
+        </div>
+        <div class="transcript" aria-label="An agent rendering a video">
+          <div class="transcript-head">
+            <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>agent · automedia
+          </div>
+          <ol data-transcript>
+            <li>
+              <b>create_composition</b><span>name: "Launch", 1920×1080, 30 fps</span><em>ok</em>
+            </li>
+            <li><b>write_file</b><span>blocks/title/script.js · 184 lines</span><em>ok</em></li>
+            <li><b>put_control</b><span>accent · color · #EF4444</span><em>ok</em></li>
+            <li>
+              <b>validate</b><span>renderer registered · 0 script errors</span><em>0 issues</em>
+            </li>
+            <li><b>start_export</b><span>format: "mp4", quality: 80</span><em>queued</em></li>
+            <li><b>get_export</b><span>launch.mp4 · 12.4 MB</span><em>done</em></li>
+          </ol>
+          <ul class="tools" aria-label="MCP tools">
+            <li>list_compositions</li>
+            <li>claim_composition</li>
+            <li>read_file</li>
+            <li>write_file</li>
+            <li>create_block</li>
+            <li>create_music_block</li>
+            <li>put_track</li>
+            <li>put_marker</li>
+            <li>put_control</li>
+            <li>probe_media</li>
+            <li>get_runtime_types</li>
+            <li>validate</li>
+            <li>start_export</li>
+            <li>get_export</li>
+            <li>save_project</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="studio" id="studio">
+        <div class="section-head">
+          <p class="label">The studio</p>
+          <h2>For the last ten percent.</h2>
+          <p>
+            The studio is a window onto the same engine. Scrub the timeline, nudge a control, edit
+            the source, and export. Agents never need it open.
+          </p>
+        </div>
+        <div class="tabs" role="tablist" aria-label="Studio views">
+          <button
+            role="tab"
+            type="button"
+            aria-selected="true"
+            aria-controls="shot-controls"
+            id="tab-controls"
+          >
+            Controls
+          </button>
+          <button
+            role="tab"
+            type="button"
+            aria-selected="false"
+            aria-controls="shot-music"
+            id="tab-music"
+            tabindex="-1"
+          >
+            Music
+          </button>
+          <button
+            role="tab"
+            type="button"
+            aria-selected="false"
+            aria-controls="shot-dark"
+            id="tab-dark"
+            tabindex="-1"
+          >
+            Dark
+          </button>
+          <button
+            role="tab"
+            type="button"
+            aria-selected="false"
+            aria-controls="shot-light"
+            id="tab-light"
+            tabindex="-1"
+          >
+            Light
+          </button>
+        </div>
+        <div class="shots">
+          <figure class="shot" role="tabpanel" id="shot-controls" aria-labelledby="tab-controls">
+            <img
+              src="/img/studio-controls.webp"
+              width="1280"
+              height="800"
+              loading="lazy"
+              alt="The studio with the poster template open. The inspector shows color, shape, title, and speed controls."
+            />
+            <figcaption>
+              Controls are part of the project. Range, color, toggle, and select values reach the
+              renderer on every frame.
+            </figcaption>
+          </figure>
+          <figure class="shot" role="tabpanel" id="shot-music" aria-labelledby="tab-music" hidden>
+            <img
+              src="/img/studio-music.webp"
+              width="1280"
+              height="800"
+              loading="lazy"
+              alt="The studio playing Four chords, with a visual block on track one and a Strudel music clip on track two."
+            />
+            <figcaption>
+              Music clips are Strudel patterns in a single file. They play in the preview and mix
+              into the export.
+            </figcaption>
+          </figure>
+          <figure class="shot" role="tabpanel" id="shot-dark" aria-labelledby="tab-dark" hidden>
+            <img
+              src="/img/studio-dark.webp"
+              width="1280"
+              height="800"
+              loading="lazy"
+              alt="The studio in dark mode with the Aurora shader paused mid-timeline."
+            />
+            <figcaption>
+              Dark is the intended look: graphite panes, a red playhead, and the picture in the
+              middle.
+            </figcaption>
+          </figure>
+          <figure class="shot" role="tabpanel" id="shot-light" aria-labelledby="tab-light" hidden>
+            <img
+              src="/img/studio-light.webp"
+              width="1280"
+              height="800"
+              loading="lazy"
+              alt="The same studio view in light mode."
+            />
+            <figcaption>Light is the same gray, inverted. System follows your OS.</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section class="download" id="download">
+        <div class="section-head">
+          <p class="label">Download</p>
+          <h2>Get Automedia <span data-version>v0.3.0</span>.</h2>
+          <p>
+            Free and open source under Apache 2.0. The AppImage and the Windows installer update
+            themselves from GitHub releases.
+          </p>
+        </div>
+        <div class="platforms">
+          <a
+            class="platform"
+            data-platform="linux"
+            href="https://github.com/tyrannyme/automedia/releases/latest"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M12 3c-2 0-3 1.8-3 4 0 1.4.3 2.3-.6 3.6C7.2 12.3 6 14 6 16c0 .8.2 1.5.5 2.1M12 3c2 0 3 1.8 3 4 0 1.4-.3 2.3.6 3.6 1.2 1.7 2.4 3.4 2.4 5.4 0 .8-.2 1.5-.5 2.1M8 19.5c1 .9 2.4 1.5 4 1.5s3-.6 4-1.5M10.5 7.5h.01M13.5 7.5h.01"
+              />
+            </svg>
+            <b>Linux</b>
+            <span>AppImage, x64</span>
+            <code data-asset="AppImage">Automedia.AppImage</code>
+          </a>
+          <a
+            class="platform"
+            data-platform="windows"
+            href="https://github.com/tyrannyme/automedia/releases/latest"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M4 5.5 11 4.5v7H4zM13 4.2 20 3v8.5h-7zM4 12.5h7v7l-7-1zM13 12.5h7V21l-7-1.2z"
+              />
+            </svg>
+            <b>Windows</b>
+            <span>Installer, x64</span>
+            <code data-asset="Setup.exe">Automedia-Setup.exe</code>
+          </a>
+          <div class="platform from-source">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m8 7-5 5 5 5M16 7l5 5-5 5M13.5 4l-3 16" />
+            </svg>
+            <b>From source</b>
+            <span>Node 22.18+, pnpm 11</span>
+            <pre
+              class="code"
+            ><code data-highlight="sh">git clone https://github.com/tyrannyme/automedia
+cd automedia && pnpm install
+pnpm exec playwright install chromium
+pnpm dev</code></pre>
+          </div>
+        </div>
+        <p class="fineprint" data-platform-note>
+          Linux and Windows on x64. macOS isn't packaged yet; it runs from source.
+        </p>
+      </section>
+    </main>
+
+    <footer>
+      <a class="logo" href="/" aria-label="Automedia home">
+        <svg aria-hidden="true"><use href="#mark" /></svg>
+        <span>Automedia</span>
+      </a>
+      <p class="muted">
+        Every animation on this page was written as a web page and rendered by Automedia.
+      </p>
+      <nav aria-label="Project links">
+        <a href="https://github.com/tyrannyme/automedia">GitHub</a>
+        <a href="https://github.com/tyrannyme/automedia/releases">Releases</a>
+        <a href="https://github.com/tyrannyme/automedia/issues">Issues</a>
+        <a href="https://github.com/tyrannyme/automedia/blob/main/LICENSE">Apache 2.0</a>
+      </nav>
+    </footer>
+
+    <dialog class="viewer" data-viewer aria-labelledby="viewer-title">
+      <div class="viewer-media" data-viewer-media></div>
+      <div class="viewer-side">
+        <div class="viewer-head">
+          <div>
+            <h2 id="viewer-title" data-viewer-title></h2>
+            <p class="muted" data-viewer-description></p>
+          </div>
+          <button class="icon-button" type="button" data-viewer-close aria-label="Close" autofocus>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+          </button>
+        </div>
+        <dl class="stats" data-viewer-stats></dl>
+        <div class="viewer-files">
+          <div class="file-tabs" role="tablist" aria-label="Source files" data-viewer-tabs></div>
+          <pre class="code source"><code data-viewer-code></code></pre>
+        </div>
+        <div class="viewer-actions" data-viewer-actions></div>
+      </div>
+    </dialog>
+
+    <svg width="0" height="0" class="defs" aria-hidden="true">
+      <symbol id="mark" viewBox="210 190 604 642">
+        <path fill="currentColor" d="M210 190h604v470H712V298H372l73 85h-97L210 242z" />
+        <path fill="currentColor" d="M210 365h101v359h340l-73-84h98l138 140v52H210z" />
+      </symbol>
+    </svg>
+  </body>
+</html>

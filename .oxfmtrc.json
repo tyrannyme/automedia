@@ -10,6 +10,7 @@
     "out/**",
     "node_modules/**",
     "pnpm-lock.yaml",
+    "site/public/gallery/**",
     ".agent/**",
     ".agents/**",
     ".claude/**",

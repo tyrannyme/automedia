@@ -1,0 +1,14 @@
+{
+  "order": 12,
+  "name": "Four chords",
+  "description": "A Strudel music clip under a visual block. The pattern is code, the visuals follow the same tempo, and the MP4 carries both. Sound on.",
+  "tags": ["Strudel", "Music", "Audio"],
+  "settings": {
+    "width": 1280,
+    "height": 720,
+    "fps": 30,
+    "durationSeconds": 8,
+    "background": "#0A0A0A"
+  },
+  "poster": 4.25
+}

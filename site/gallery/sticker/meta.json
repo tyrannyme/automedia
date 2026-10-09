@@ -1,0 +1,16 @@
+{
+  "order": 10,
+  "name": "Sticker",
+  "description": "Transparent background, exported as an animated WebP with alpha. Drop it on anything.",
+  "tags": ["Alpha", "WebP", "CSS"],
+  "settings": {
+    "width": 480,
+    "height": 480,
+    "fps": 30,
+    "durationSeconds": 3,
+    "background": "transparent"
+  },
+  "poster": 1.2,
+  "formats": ["webp"],
+  "quality": 85
+}

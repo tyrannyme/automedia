@@ -1,0 +1,51 @@
+html,
+body {
+  margin: 0;
+  width: 1280px;
+  height: 720px;
+  overflow: hidden;
+  background: #0a0a0a;
+}
+.grid {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(13, 1fr);
+  grid-template-rows: repeat(7, 1fr);
+  padding: 32px;
+  gap: 16px;
+}
+.grid i {
+  --d: calc((var(--x) + var(--y)) * -0.09s);
+  --hue: calc(var(--x) * 9deg + var(--y) * 14deg + 200deg);
+  display: block;
+  border-radius: 50%;
+  background: oklch(0.72 0.19 var(--hue));
+  animation:
+    morph 4s cubic-bezier(0.65, 0, 0.35, 1) var(--d) infinite,
+    hue 4s linear var(--d) infinite;
+}
+@keyframes morph {
+  0%,
+  100% {
+    border-radius: 50%;
+    transform: scale(0.35) rotate(0deg);
+  }
+  25% {
+    border-radius: 12%;
+    transform: scale(0.9) rotate(90deg);
+  }
+  50% {
+    border-radius: 50% 0;
+    transform: scale(0.7) rotate(180deg);
+  }
+  75% {
+    border-radius: 0 50%;
+    transform: scale(1) rotate(270deg);
+  }
+}
+@keyframes hue {
+  to {
+    filter: hue-rotate(360deg);
+  }
+}

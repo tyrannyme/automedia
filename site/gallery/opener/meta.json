@@ -1,0 +1,14 @@
+{
+  "order": 1,
+  "name": "Opener",
+  "description": "The mark snaps together, the timeline fills, and the playhead runs the whole reel. Canvas 2D on the frame clock.",
+  "tags": ["Canvas 2D", "Title card"],
+  "settings": {
+    "width": 1280,
+    "height": 720,
+    "fps": 30,
+    "durationSeconds": 6,
+    "background": "#0A0A0A"
+  },
+  "poster": 2.6
+}

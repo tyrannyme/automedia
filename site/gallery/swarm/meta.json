@@ -1,0 +1,15 @@
+{
+  "order": 6,
+  "name": "Swarm",
+  "description": "Six thousand particles on closed orbits, each position a pure function of time. Additive canvas, no simulation state to drift.",
+  "tags": ["Canvas 2D", "Generative"],
+  "settings": {
+    "width": 1280,
+    "height": 720,
+    "fps": 30,
+    "durationSeconds": 8,
+    "background": "#000000"
+  },
+  "poster": 2.4,
+  "quality": 80
+}
