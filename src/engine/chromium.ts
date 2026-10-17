@@ -1,3 +1,6 @@
+import { execFile } from "node:child_process";
+import path from "node:path";
+import { promisify } from "node:util";
 import { chromium, type Browser, type LaunchOptions } from "playwright";
 
 export function webGpuArgs(): string[] {
@@ -17,6 +20,32 @@ export function playwrightLaunchOptions(): LaunchOptions {
   };
 }
 
+/**
+ * Downloads chromium-headless-shell the first time it is missing, so a fresh
+ * install renders without a separate `playwright install` step, unless
+ * PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD is set.
+ */
 export async function launchChromium(): Promise<Browser> {
-  return chromium.launch(playwrightLaunchOptions());
+  try {
+    return await chromium.launch(playwrightLaunchOptions());
+  } catch (error) {
+    if (!(error instanceof Error) || !isMissingBrowser(error.message)) throw error;
+    // Playwright's own switch for "never download browsers", which CI sets.
+    if (process.env.PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD) throw error;
+    await installHeadlessShell();
+    return chromium.launch(playwrightLaunchOptions());
+  }
+}
+
+export function isMissingBrowser(message: string): boolean {
+  return message.includes("Executable doesn't exist");
+}
+
+async function installHeadlessShell(): Promise<void> {
+  // cli.js is not in playwright's exports, so find it beside package.json.
+  const cli = path.join(path.dirname(require.resolve("playwright/package.json")), "cli.js");
+  console.error("automedia: downloading Chromium for rendering, once");
+  await promisify(execFile)(process.execPath, [cli, "install", "chromium-headless-shell"], {
+    windowsHide: true,
+  });
 }

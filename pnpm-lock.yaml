@@ -14,51 +14,21 @@ importers:
 
   .:
     dependencies:
-      '@base-ui/react':
-        specifier: 1.7.0
-        version: 1.7.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      '@heroicons/react':
-        specifier: 2.2.0
-        version: 2.2.0(react@19.2.8)
-      '@mediabunny/server':
-        specifier: 1.60.0
-        version: 1.60.0(patch_hash=ad3906be6994b6b4344b6c52ca174ddc84430189dcc87c05fa4f1b1455912b93)(mediabunny@1.60.0)(supports-color@8.1.1)
-      '@modelcontextprotocol/node':
-        specifier: 2.0.0
-        version: 2.0.0(@modelcontextprotocol/server@2.0.0)(hono@4.13.2)
-      '@modelcontextprotocol/server':
-        specifier: 2.0.0
-        version: 2.0.0
       '@strudel/web':
         specifier: 1.2.8
         version: 1.2.8
       '@tailwindcss/browser':
         specifier: 4.3.3
         version: 4.3.3
-      '@tanstack/react-router':
-        specifier: 1.170.25
-        version: 1.170.25(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      better-result:
-        specifier: ^3.0.1
-        version: 3.0.1
-      class-variance-authority:
-        specifier: 0.7.1
-        version: 0.7.1
-      clsx:
-        specifier: 2.1.1
-        version: 2.1.1
-      electron-updater:
-        specifier: 6.8.10
-        version: 6.8.10(supports-color@8.1.1)
+      '@vgpu/core':
+        specifier: 0.3.0
+        version: 0.3.0(@vgpu/adapter-node@0.3.0(supports-color@8.1.1))
+      '@vgpu/wgsl':
+        specifier: 0.3.0
+        version: 0.3.0(@vgpu/adapter-node@0.3.0(supports-color@8.1.1))
       framer-motion:
         specifier: 13.1.0
         version: 13.1.0(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      mediabunny:
-        specifier: 1.60.0
-        version: 1.60.0
-      modern-gif:
-        specifier: 2.1.0
-        version: 2.1.0
       motion:
         specifier: 13.1.0
         version: 13.1.0(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -68,49 +38,25 @@ importers:
       motion-utils:
         specifier: 13.0.0
         version: 13.0.0
+      node-av:
+        specifier: 6.1.1
+        version: 6.1.1(supports-color@8.1.1)
       playwright:
         specifier: 1.62.1
         version: 1.62.1
-      react:
-        specifier: 19.2.8
-        version: 19.2.8
-      react-dom:
-        specifier: 19.2.8
-        version: 19.2.8(react@19.2.8)
-      shadcn:
-        specifier: 4.18.0
-        version: 4.18.0(supports-color@8.1.1)(typescript@7.0.2)
-      tailwind-merge:
-        specifier: 3.6.0
-        version: 3.6.0
       three:
         specifier: 0.185.1
         version: 0.185.1
-      tw-animate-css:
-        specifier: 1.4.0
-        version: 1.4.0
-      valibot:
-        specifier: 1.4.2
-        version: 1.4.2(typescript@7.0.2)
       vgpu:
         specifier: 0.3.0
         version: 0.3.0(supports-color@8.1.1)
       wasm-webp:
         specifier: 0.1.0
         version: 0.1.0
-      yauzl:
-        specifier: 3.4.0
-        version: 3.4.0
-      yazl:
-        specifier: 3.3.1
-        version: 3.3.1
-      zod:
-        specifier: 4.4.3
-        version: 4.4.3
-      zustand:
-        specifier: 5.0.15
-        version: 5.0.15(@types/react@19.2.18)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8))
     devDependencies:
+      '@base-ui/react':
+        specifier: 1.7.0
+        version: 1.7.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@electron-forge/cli':
         specifier: 7.11.2
         version: 7.11.2(encoding@0.1.13)(lightningcss@1.33.0)(postcss@8.5.26)(supports-color@8.1.1)
@@ -132,12 +78,27 @@ importers:
       '@electron/fuses':
         specifier: 1.8.0
         version: 1.8.0
+      '@heroicons/react':
+        specifier: 2.2.0
+        version: 2.2.0(react@19.2.8)
+      '@mediabunny/server':
+        specifier: 1.60.0
+        version: 1.60.0(patch_hash=ad3906be6994b6b4344b6c52ca174ddc84430189dcc87c05fa4f1b1455912b93)(mediabunny@1.60.0)(supports-color@8.1.1)
+      '@modelcontextprotocol/node':
+        specifier: 2.0.0
+        version: 2.0.0(@modelcontextprotocol/server@2.0.0)(hono@4.13.2)
+      '@modelcontextprotocol/server':
+        specifier: 2.0.0
+        version: 2.0.0
       '@oxlint/plugins':
         specifier: 1.78.0
         version: 1.78.0
       '@tailwindcss/vite':
         specifier: 4.3.3
         version: 4.3.3(vite@8.2.1(@types/node@26.2.0)(jiti@2.7.0)(terser@5.49.2))
+      '@tanstack/react-router':
+        specifier: 1.170.25
+        version: 1.170.25(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@types/node':
         specifier: 26.2.0
         version: 26.2.0
@@ -162,27 +123,75 @@ importers:
       app-builder-lib:
         specifier: 26.15.3
         version: 26.15.3(dmg-builder@26.15.3)(electron-builder-squirrel-windows@26.15.3)(supports-color@8.1.1)
+      better-result:
+        specifier: ^3.0.1
+        version: 3.0.1
+      class-variance-authority:
+        specifier: 0.7.1
+        version: 0.7.1
+      clsx:
+        specifier: 2.1.1
+        version: 2.1.1
       electron:
         specifier: 43.4.0
         version: 43.4.0(supports-color@8.1.1)
+      electron-updater:
+        specifier: 6.8.10
+        version: 6.8.10(supports-color@8.1.1)
+      mediabunny:
+        specifier: 1.60.0
+        version: 1.60.0
+      modern-gif:
+        specifier: 2.1.0
+        version: 2.1.0
       oxfmt:
         specifier: 0.63.0
         version: 0.63.0
       oxlint:
         specifier: 1.78.0
         version: 1.78.0
+      react:
+        specifier: 19.2.8
+        version: 19.2.8
+      react-dom:
+        specifier: 19.2.8
+        version: 19.2.8(react@19.2.8)
+      shadcn:
+        specifier: 4.18.0
+        version: 4.18.0(supports-color@8.1.1)(typescript@7.0.2)
+      tailwind-merge:
+        specifier: 3.6.0
+        version: 3.6.0
       tailwindcss:
         specifier: 4.3.3
         version: 4.3.3
+      tw-animate-css:
+        specifier: 1.4.0
+        version: 1.4.0
       typescript:
         specifier: 7.0.2
         version: 7.0.2
+      valibot:
+        specifier: 1.4.2
+        version: 1.4.2(typescript@7.0.2)
       vite:
         specifier: 8.2.1
         version: 8.2.1(@types/node@26.2.0)(jiti@2.7.0)(terser@5.49.2)
       vitest:
         specifier: 4.1.10
         version: 4.1.10(@types/node@26.2.0)(vite@8.2.1(@types/node@26.2.0)(jiti@2.7.0)(terser@5.49.2))
+      yauzl:
+        specifier: 3.4.0
+        version: 3.4.0
+      yazl:
+        specifier: 3.3.1
+        version: 3.3.1
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+      zustand:
+        specifier: 5.0.15
+        version: 5.0.15(@types/react@19.2.18)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8))
 
 packages:
 

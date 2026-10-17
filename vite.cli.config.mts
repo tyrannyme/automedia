@@ -18,7 +18,7 @@ export default defineConfig(({ mode }) => {
   if (!entry) throw new Error(`--mode must be one of ${Object.keys(bundles).join(", ")}`);
   return mergeConfig(main, {
     build: {
-      outDir: ".vite/build",
+      outDir: "cli",
       emptyOutDir: false,
       minify: true,
       lib: { entry, fileName: () => `${mode}.js`, formats: ["cjs"] },

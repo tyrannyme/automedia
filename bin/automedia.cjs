@@ -1,3 +1,4 @@
 #!/usr/bin/env node
-// Built by `pnpm build:cli`. The bundles find the engine and worker beside themselves.
-require("../.vite/build/automedia.js");
+// Built by `pnpm build:cli`. Releases commit the bundles to the `cli` branch,
+// so `pnpx github:tyrannyme/automedia#cli` runs without a build step.
+require("../cli/automedia.js");
