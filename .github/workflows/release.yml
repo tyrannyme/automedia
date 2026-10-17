@@ -105,3 +105,42 @@ jobs:
               --generate-notes \
               --verify-tag \
               ${prerelease}
+
+  # `pnpx github:tyrannyme/automedia#cli` runs this release with its bundles
+  # built into cli/. They live only on the cli branch, never on main.
+  cli:
+    needs: publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.15.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Set version from tag
+        run: npm pkg set "version=${GITHUB_REF_NAME#v}"
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build the command
+        run: pnpm build:cli
+
+      - name: Publish it to the cli branch
+        run: |
+          # On top of the tag, with the tag's version in package.json.
+          git add package.json
+          git add -f cli
+          git -c user.name="github-actions[bot]" \
+            -c user.email="41898283+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "Automedia ${GITHUB_REF_NAME} command"
+          git push --force origin HEAD:refs/heads/cli

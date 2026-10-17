@@ -16,6 +16,7 @@ export default defineConfig({
   },
   ignorePatterns: [
     ".vite/**",
+    "cli/**",
     "out/**",
     "node_modules/**",
     "dist/**",

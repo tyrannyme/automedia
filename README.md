@@ -10,259 +10,86 @@
   <a href="https://www.typescriptlang.org/"><picture><source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/badge/TypeScript-7-3178C6.svg?variant=secondary&amp;size=sm&amp;font=geist&amp;logo=typescript&amp;mode=dark"><img alt="TypeScript 7" src="https://shieldcn.dev/badge/TypeScript-7-3178C6.svg?variant=secondary&amp;size=sm&amp;font=geist&amp;logo=typescript&amp;mode=light"></picture></a>
 </p>
 
-Automedia is a local engine and studio for authoring browser-based stills, animations, and videos. A project is an HTML, CSS, and JavaScript document with composition settings, optional media tracks, timeline markers, and controls.
+Make stills, animations, and videos out of HTML, CSS, and JavaScript. Build them yourself in the studio, or let AI agents build them for you.
 
-The banner above is a PNG exported from Automedia — the same composition open in the studio shots below.
+Everything renders on your machine, in Chromium. What you see in the preview is exactly what gets exported. The banner above is an Automedia export.
 
-The engine is a Node process that owns the library. It serves each project from a localhost loopback server, renders it in headless Chromium, and drives it with a frame-based clock. The same renderer powers validation and export, so a successful validation checks the document that export will capture.
+![Automedia studio](docs/studio-dark-1280x800.png)
 
-Agents author projects through MCP, and any number of them share one engine. The studio is an Electron window onto the same engine. People use it to edit source, scrub the timeline, adjust settings and controls, inspect validation, and export files. Agents never need it open.
+## Features
 
-## Studio
+- **A project is a web page with a clock.** Animate with CSS, canvas, Three.js, Motion, Tailwind, WebGPU shaders, or anything else that runs in a browser.
+- **Music built in.** Write songs in code with [Strudel](https://strudel.cc), and they export with the video.
+- **Every common format.** PNG, GIF, WebP, MP4, WebM, MP3, WAV, and OGG, with transparency where the format allows it. No FFmpeg needed.
+- **Made for agents.** Agents work through MCP, and many of them can share one library at the same time. They don't need the studio open.
+- **Controls.** Add sliders, colors, toggles, and dropdowns to make one design render many ways.
 
-Dark and light chrome at the default window size. Export groups formats as video, still, and audio. A compact 800×600 window collapses the sidebars.
+See what it can make at [automedia.tyranny.me](https://automedia.tyranny.me).
 
-![Studio in dark mode](docs/studio-dark-1280x800.png)
+## Install
 
-![Studio in light mode](docs/studio-light-1280x800.png)
+Download the latest build from [Releases](https://github.com/tyrannyme/automedia/releases): an AppImage for Linux, or an installer for Windows. Both update themselves.
 
-![Export dialog](docs/studio-export-1280x800.png)
+You also need [Node.js](https://nodejs.org) 22.18 or newer, because Automedia's engine runs on it.
 
-![Studio at 800×600](docs/studio-dark-800x600.png)
+Open the app and click **New** to start from a blank project or one of the examples.
 
-Regenerate the banner through the real export queue:
+## Use it with an agent
 
-```bash
-README_BANNER=1 pnpm exec vitest run src/engine/write-readme-banner.test.ts
-```
-
-## Requirements
-
-- Node.js 22.18 or newer, on `PATH` for the studio as well: the engine runs under Node
-- pnpm 11 or newer
-- `sfw` (Socket Firewall) on `PATH`
-
-No FFmpeg install is needed. Export and media probing run in-process: [Mediabunny](https://mediabunny.dev) with `@mediabunny/server` handles MP4, WebM, MP3, WAV, and Ogg, `modern-gif` writes GIFs, and `wasm-webp` writes animated WebP.
-
-## Setup
-
-The workspace only accepts packages that have been available for at least three days. Install dependencies through Socket Firewall, then install the Chromium binary used by validation and export:
-
-```bash
-PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 sfw pnpm install
-pnpm exec playwright install chromium
-```
-
-## Run the studio
-
-```bash
-pnpm dev
-```
-
-`pnpm start` is an alias. The studio uses the engine already serving its library, or starts one that lives as long as the window. When the app opens, use `New` in the project sidebar to create a blank project or one of the built-in examples. The examples cover CSS animation, registered renderers, Motion, Three.js, Tailwind browser utilities, media, Strudel music, controls, transparency, and a deliberately broken script for testing validation errors.
-
-## Authoring model
-
-New projects live in Electron's user-data directory:
-
-```text
-compositions/<composition-id>/
-├── composition.json       # name, size, frame rate, duration, background
-├── media.json              # audio/video/image/block/music tracks and markers
-├── controls.json           # range, color, toggle, and select controls
-├── blocks/<asset>/         # visual clip: index.html, style.css, script.js
-├── music/<asset>/          # music clip: authored pattern.js
-├── assets/                 # project-local media files
-└── exports/                # completed export files
-```
-
-Save project writes a `.automedia` zip of the authored tree plus the sidebar thumbnail. Import project unpacks that file as a new library item with a new id. Exports, activity logs, and generated music runtime files stay out of the snapshot. The live project remains in user data.
-
-Projects default to 800×600 at 30 fps for three seconds with a transparent background. Composition sizes can range from 1 to 16,384 pixels, frame rates from 1 to 240 fps, and durations up to one hour.
-
-The studio edits visual-block HTML, CSS, and JS in code mode, and music patterns in a separate music editor. File writes use etags, so an agent or another process cannot silently overwrite a newer version. `composition.json` is managed through composition settings and cannot be written as a loose file. Music runtime HTML, CSS, and transport are generated and cannot be written as loose files.
-
-### Runtime API
-
-Automedia injects `window.automedia` into the project document. Use `registerRenderer` when a frame needs JavaScript-driven painting:
-
-```js
-const canvas = document.querySelector("canvas");
-const context = canvas.getContext("2d");
-
-window.automedia.registerRenderer(({ frame, width, height }) => {
-  context.clearRect(0, 0, width, height);
-  context.fillRect(frame * 4, 20, 40, 40);
-});
-```
-
-The renderer context includes time in seconds and milliseconds, frame, fps, dimensions, duration, and current control values. The runtime also exposes `ready`, `seek`, `setControls`, `getDiagnostics`, and `getMediaDiagnostics`. Query `get_runtime_types` over MCP for the full TypeScript contract.
-
-The bundled import map provides pinned versions of Three.js, Motion, the Tailwind browser build, Strudel (`@strudel/web`), and vGPU (`vgpu`). vGPU blocks can fetch project-local `.wgsl` files and draw deterministic WebGPU frames from `registerRenderer`. The built-in `vgpu-shader` example renders into an offscreen vGPU target and reads the pixels into a 2D canvas so Chromium captures the same frame in previews, thumbnails, and headless exports. Query `get_runtime_catalog` for the versions available to a project.
-
-### Music
-
-`create_music_block` (or Add music in the studio) adds a first-class `music` clip. Authors write one file, `music/<asset>/pattern.js`, that exports a Strudel pattern:
-
-```js
-import { add, note, perlin, sine, stack, voicings } from "@strudel/web";
-
-// Official Strudel getting-started showcase, rewritten onto built-in synths.
-export default function pattern(gain) {
-  const drums = stack(
-    note("c1")
-      .s("sine")
-      .struct("x")
-      .decay(0.14)
-      .sustain(0)
-      .gain(0.5 * gain),
-    note("g2")
-      .s("triangle")
-      .struct("[~ <x!3 x(3,4,2)>]")
-      .decay(0.08)
-      .sustain(0)
-      .gain(0.28 * gain),
-    note("c6")
-      .s("square")
-      .struct("x*8")
-      .decay(0.025)
-      .sustain(0)
-      .lpf(9000)
-      .gain(0.07 * gain),
-  );
-  const bass = note("<a1 b1*2 a1(3,8) e2>")
-    .off(1 / 8, (x) => x.add(12).degradeBy(0.5))
-    .add(perlin.range(0, 0.5))
-    .superimpose(add(0.05))
-    .decay(0.15)
-    .sustain(0)
-    .s("sawtooth")
-    .gain(0.32 * gain)
-    .cutoff(sine.slow(7).range(300, 5000));
-  const chords = voicings("lefthand", "<Am7!3 <Em7 E7b13 Em7 Ebm7b5>>")
-    .superimpose((x) => x.add(0.04))
-    .add(perlin.range(0, 0.5))
-    .note()
-    .s("sawtooth")
-    .gain(0.12 * gain)
-    .cutoff(500)
-    .attack(1);
-  return stack(drums, bass, chords).slow(3 / 2);
-}
-```
-
-The default is the official Strudel getting-started showcase, rewritten onto built-in synths so it works offline. The bassline, lefthand voicings, and Euclidean snare figure stay; dirt-sample drums become sine/triangle/square hits. The studio opens a music editor for that file. The runtime wrapper, playback, mute, and volume stay managed and are not part of the HTML/CSS/JS block flow. Music clips are unmuted. Agents edit the pattern with `write_file` on `music/<asset>/pattern.js`. Sample banks are optional and need a network.
-
-## Agents
-
-Agents connect over MCP. Build the `automedia` command once from a checkout:
-
-```bash
-pnpm build:cli
-pnpm link --global   # optional: puts `automedia` on PATH
-```
-
-Then give each agent a stdio server:
+Add Automedia to your agent's MCP servers:
 
 ```json
 {
   "mcpServers": {
     "automedia": {
-      "command": "automedia",
-      "args": ["mcp"]
+      "command": "pnpx",
+      "args": ["github:tyrannyme/automedia#cli", "mcp"]
     }
   }
 }
 ```
 
-Without the global link, use `"command": "node"` and `"args": ["/path/to/automedia/bin/automedia.cjs", "mcp"]`.
+You need Node.js 22.18 or newer. The first run takes a minute: it installs Automedia, and the first render downloads a headless Chromium.
 
-`automedia mcp` is a small relay. It holds no state and renders nothing. On its first tool call it finds the engine for the library, or starts one in the background, and forwards every call to it. All agents share that engine and one headless Chromium, in which each validation, export, and thumbnail gets its own browser context. Exports run a few at a time, taken from each agent in turn, so one agent's batch cannot starve another's. The engine exits after 30 idle minutes, and the next call starts it again.
+The agent's compositions show up in the studio as it works, but it doesn't need the studio open.
 
-```text
-automedia mcp       stdio MCP for one agent
-automedia daemon    run the engine in the foreground
-automedia status    show the running engine
-automedia stop      stop it
+## Write a composition
+
+A composition is a normal web page. To draw each frame yourself, register a renderer:
+
+```js
+const canvas = document.querySelector("canvas");
+const context = canvas.getContext("2d");
+
+window.automedia.registerRenderer(({ frame }) => {
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  context.fillRect(frame * 4, 20, 40, 40);
+});
 ```
 
-Options: `--library <dir>` serves another library (`AUTOMEDIA_LIBRARY`), and `--port <n>` runs a second engine beside the first (`AUTOMEDIA_LOOPBACK_PORT`). On `daemon`, `--idle-minutes <n>` sets the idle exit (`0` never exits), and `--export-slots <n>` and `--render-slots <n>` set how much runs at once. The defaults are one export per six cores, and one validation or thumbnail per four cores, between two and six. The default library is the studio's, so agents' compositions appear in the studio. An engine started in the background logs to `engine.log` in the library.
+Automedia steps through frames one at a time, so exports are smooth no matter how slow a frame is to draw.
 
-Agents can share one library because the engine serves it alone. Claim a composition with `claim_composition` before writing it. Export jobs report an absolute `outputPath`.
+## Build from source
 
-Thumbnails are for people, so the engine renders them only while a studio is open. Edits made with no studio open leave thumbnails stale until one connects.
-
-## Localhost services
-
-The engine listens on `127.0.0.1:47821`:
-
-- `POST /mcp` for Streamable HTTP MCP, for clients that prefer it to stdio
-- `POST /api/<operation>` for the studio and the stdio relays
-- `GET /health` for the engine's version, library, and process, and whether it is busy
-- `GET /events` for server-sent studio and export events
-- `GET /compositions/<id>/content/<path>` for rendered project files
-- `GET /compositions/<id>/exports/<job-id>` for completed exports
-
-The studio exposes Chromium remote debugging for its window at `http://127.0.0.1:47822`. Override either port when needed:
+You need Node.js 22.18+, pnpm 11+, and [Socket Firewall](https://socket.dev) (`sfw`) on `PATH`.
 
 ```bash
-AUTOMEDIA_LOOPBACK_PORT=49000 AUTOMEDIA_CDP_PORT=49001 pnpm dev
+PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 sfw pnpm install
+pnpm exec playwright install chromium
+pnpm dev
 ```
 
-### MCP tools
+| Command          | What it does                            |
+| ---------------- | --------------------------------------- |
+| `pnpm dev`       | Start the studio                        |
+| `pnpm check`     | Lint, check formatting, and type-check  |
+| `pnpm test`      | Run the tests                           |
+| `pnpm build:cli` | Rebuild the agent command in `cli/`     |
+| `pnpm make`      | Build the AppImage or Windows installer |
 
-- Projects: `list_compositions`, `get_composition`, `create_composition`, `update_settings`, `delete_composition`, `save_project`, `import_project`, `get_activity`, `list_examples`, `reorder_compositions`, `claim_composition`, `release_composition`, `workspace_status`
-- Files: `list_files`, `read_file`, `write_file`, `delete_file`
-- Media: `get_media`, `probe_media`, `create_block`, `create_music_block`, `put_track`, `delete_track`, `put_marker`, `delete_marker`
-- Controls: `list_controls`, `put_control`, `delete_control`
-- Runtime: `get_runtime_catalog`, `get_runtime_types`
-- Quality and export: `validate`, `start_export`, `get_export`, `cancel_export`
+## Learn more
 
-`delete_composition` moves a project into `.trash`. `workspace_status` reports export jobs and composition leases. Claim a composition before parallel writes. `start_export` runs validation first and queues jobs, which share the engine's export slots with every other agent's. Supported formats are PNG, GIF, WebP, MP4, WebM, MP3, WAV, and OGG. PNG can capture a single time; GIF, WebP, MP4, and WebM render the full composition. MP3, WAV, and OGG export audio only. MP4 and WebM require even dimensions and an opaque background.
-
-## Scripts
-
-| Command                   | Purpose                                                      |
-| ------------------------- | ------------------------------------------------------------ |
-| `pnpm dev` / `pnpm start` | Start the studio, and the engine if none is running          |
-| `pnpm typecheck`          | Type-check the main process and renderer                     |
-| `pnpm lint`               | Run oxlint                                                   |
-| `pnpm fmt`                | Format with oxfmt                                            |
-| `pnpm fmt:check`          | Check formatting without changing files                      |
-| `pnpm check`              | Run lint, format checks, and typecheck                       |
-| `pnpm test`               | Run the Vitest unit and integration suite                    |
-| `pnpm build:cli`          | Build the `automedia` command for agents                     |
-| `pnpm package`            | Package the Electron app                                     |
-| `pnpm make`               | Build an AppImage (Linux) or installer (Windows), plus a zip |
-
-## Website
-
-`site/` is [automedia.tyranny.me](https://automedia.tyranny.me): a static page served by a Cloudflare Worker. Every animation on it is a composition under `site/gallery/<id>/` (`meta.json`, `body.html`, `style.css`, `script.js`, plus any extra files) rendered through the real export queue into `site/public/gallery/`, along with the `gallery.json` manifest the page reads:
-
-```bash
-SITE_GALLERY=1 pnpm exec vitest run src/engine/write-site-gallery.test.ts
-SITE_GALLERY=1 SITE_GALLERY_ONLY=aurora,knot pnpm exec vitest run src/engine/write-site-gallery.test.ts
-```
-
-Deploy with `wrangler deploy` from `site/`.
-
-## Releases
-
-Pushing a `vX.Y.Z` tag on `main` builds and publishes a GitHub release. The tag sets the version, so `package.json` is not bumped per release. The AppImage and the Windows installer check for a newer release hourly and offer it from the titlebar. The zips do not self-update.
-
-## Repository layout
-
-```text
-src/engine     Library store, loopback server, MCP, operations, render pool, validation, export
-src/cli        The automedia command: stdio MCP relay, engine daemon, status and stop
-src/main       Electron studio: window, dialogs, settings, updates; a client of the engine
-src/preload    Isolated contextBridge API
-src/renderer   React studio UI and state
-src/shared     Schemas, IPC contracts, clock, limits, and runtime types
-fixtures       Media copied into media-backed examples
-site           automedia.tyranny.me and the compositions behind its gallery
-tools/oxlint   Local oxlint rules
-```
+[docs/reference.md](docs/reference.md) covers the project format, runtime API, music, the engine and its CLI, the MCP tools, the localhost API, the website, and releases.
 
 ## License
 

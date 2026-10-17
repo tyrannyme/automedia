@@ -3,6 +3,7 @@ node_modules/
 
 # Build
 .vite/
+/cli/
 out/
 dist/
 *.tsbuildinfo
