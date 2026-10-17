@@ -1,11 +1,13 @@
 import path from "node:path";
 import { app, BrowserWindow, dialog, nativeTheme } from "electron";
 import { resolveLoopbackPort } from "../engine/loopback.ts";
+import { makeConsoleBestEffort } from "./best-effort-console.ts";
 import { cdpOrigin, resolveCdpPort } from "./cdp.ts";
 import { connectStudioEngine, type StudioEngine } from "./engine-process.ts";
 import { registerIpcHandlers } from "./ipc.ts";
 import { startUpdates } from "./updates.ts";
 
+makeConsoleBestEffort([process.stdout, process.stderr]);
 app.enableSandbox();
 
 // CDP stays on localhost so agents can attach to the studio window.
