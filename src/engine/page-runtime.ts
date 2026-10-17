@@ -106,7 +106,6 @@ export async function readInjectedRuntime(page: Page): Promise<PageValidationSna
         return { missingRuntime: true };
       }
       await automedia.ready();
-      await automedia.seek(0, 0);
       return {
         missingRuntime: false,
         diagnostics: automedia.getDiagnostics(),

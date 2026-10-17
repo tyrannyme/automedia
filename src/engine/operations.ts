@@ -2,7 +2,7 @@ import { copyFile } from "node:fs/promises";
 import path from "node:path";
 import * as v from "valibot";
 import { AppError } from "@shared/errors.ts";
-import { isAssetExtension } from "@shared/media.ts";
+import { isAssetExtension, isFontExtension } from "@shared/media.ts";
 import { ensureProjectArchiveExtension } from "@shared/project-archive.ts";
 import {
   controlIdSchema,
@@ -87,24 +87,29 @@ export function createOperations(context: EngineContext) {
       return compositions.map((item) => ({ ...item, lease: store.leaseOf(item.id) }));
     }),
 
-    workspaceStatus: operation(none, async () => {
-      const compositions = await store.list();
-      return {
-        exports: queue.listJobs(),
-        compositions: await Promise.all(
-          compositions.map(async (item) => {
-            const entries = await store.listActivity(item.id);
-            return {
-              compositionId: item.id,
-              name: item.name,
-              updatedAt: item.updatedAt,
-              lease: store.leaseOf(item.id),
-              lastActivity: entries.at(-1) ?? null,
-            };
-          }),
-        ),
-      };
-    }),
+    /** Pass a compositionId to see only that composition and its exports. */
+    workspaceStatus: operation(
+      v.optional(v.object({ compositionId: v.optional(idSchema) })),
+      async (input) => {
+        const only = input?.compositionId;
+        const compositions = only ? [await store.get(only)] : await store.list();
+        return {
+          exports: queue.listJobs().filter((job) => !only || job.compositionId === only),
+          compositions: await Promise.all(
+            compositions.map(async (item) => {
+              const entries = await store.listActivity(item.id);
+              return {
+                compositionId: item.id,
+                name: item.name,
+                updatedAt: item.updatedAt,
+                lease: store.leaseOf(item.id),
+                lastActivity: entries.at(-1) ?? null,
+              };
+            }),
+          ),
+        };
+      },
+    ),
 
     claimComposition: operation(
       v.object({
@@ -224,13 +229,14 @@ export function createOperations(context: EngineContext) {
       return { ok: true, path: relativePath };
     }),
 
-    /** Copies a file from anywhere on disk into assets/, renaming on collision. */
+    /** Copies a media, image, or font file from anywhere on disk into assets/, renaming on collision. */
     importAsset: operation(
       v.object({ compositionId: idSchema, source: absolutePath }),
       async ({ compositionId, source }) => {
         await store.get(compositionId);
-        if (!isAssetExtension(path.extname(source).slice(1).toLowerCase())) {
-          throw new AppError("invalid_asset", "unsupported media extension");
+        const extension = path.extname(source).slice(1).toLowerCase();
+        if (!isAssetExtension(extension) && !isFontExtension(extension)) {
+          throw new AppError("invalid_asset", `unsupported asset extension: ${extension}`);
         }
         const assetsDir = path.join(store.compositionDir(compositionId), "assets");
         let asset = path.basename(source).toLowerCase();
@@ -402,10 +408,22 @@ export async function runOperation<TName extends OperationName>(
   caller: Caller,
 ): Promise<OperationResult<TName>> {
   const selected: Operation<v.GenericSchema, OperationResult<OperationName>> = operations[name];
-  const result = await selected.run(v.parse(selected.input, input), caller);
+  const parsed = v.safeParse(selected.input, input);
+  if (!parsed.success) throw new AppError("invalid_input", describeIssues(parsed.issues));
+  const result = await selected.run(parsed.output, caller);
   // SAFETY: operations[name] is the operation called `name`, so its result is
   // that operation's; the generic index only widens it to every result.
   return result as OperationResult<TName>;
+}
+
+/** One line per issue, each naming the field it is about. */
+function describeIssues(issues: readonly v.BaseIssue<unknown>[]): string {
+  return issues
+    .map((issue) => {
+      const key = v.getDotPath(issue);
+      return key ? `${key}: ${issue.message}` : issue.message;
+    })
+    .join("; ");
 }
 
 export function localEngine(operations: Operations, caller: Caller): Engine {

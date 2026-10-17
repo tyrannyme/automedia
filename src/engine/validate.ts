@@ -3,12 +3,15 @@ import { mediaPrepareCount } from "@shared/media.ts";
 import type { Page } from "playwright";
 import type { Composition, MediaDocument } from "@shared/schemas.ts";
 import { compositionContentUrl, resolveLoopbackUrl, type LoopbackUrlSource } from "./loopback.ts";
-import { readInjectedRuntime } from "./page-runtime.ts";
+import { readInjectedRuntime, seekInjectedRuntime } from "./page-runtime.ts";
 import type { RenderPool } from "./render-pool.ts";
 
 export type { LoopbackUrlSource };
 
 export { mediaPrepareCount, resolveLoopbackUrl };
+
+/** How long a script gets after its last seek to throw from a timer or promise. */
+const settleMs = 250;
 
 export type ValidationIssue = {
   code: string;
@@ -49,15 +52,14 @@ async function validatePage(
 ): Promise<ValidationReport> {
   const issues: ValidationIssue[] = [];
   const failedResources: string[] = [];
+  const pageErrors: string[] = [];
   page.on("requestfailed", (request) => {
     const failure = request.failure()?.errorText ?? "failed";
     if (failure !== "net::ERR_ABORTED") {
       failedResources.push(`${request.url()}: ${failure}`);
     }
   });
-  page.on("pageerror", (error) => {
-    issues.push({ code: "script_error", message: error.message });
-  });
+  page.on("pageerror", (error) => pageErrors.push(error.message));
 
   const url = compositionContentUrl(resolveLoopbackUrl(loopbackUrl), composition.id);
   const response = await page.goto(url, { waitUntil: "load" });
@@ -68,8 +70,26 @@ async function validatePage(
     );
   }
 
-  const report = await readInjectedRuntime(page);
+  if ((await readInjectedRuntime(page)).missingRuntime) {
+    issues.push({ code: "missing_runtime", message: "window.automedia was not injected" });
+    return emptyReport(issues);
+  }
 
+  // Seeking runs renderers, and a block's renderers only run while it is
+  // active, so visit the start of every clip.
+  for (const timeSeconds of seekTimes(composition, media)) {
+    try {
+      await seekInjectedRuntime(page, timeSeconds, Math.round(timeSeconds * composition.fps));
+    } catch (error) {
+      issues.push({
+        code: "script_error",
+        message: `${errorSummary(error instanceof Error ? error.message : String(error))} (seeking to ${timeSeconds}s)`,
+      });
+    }
+  }
+  await page.waitForTimeout(settleMs);
+
+  const report = await readInjectedRuntime(page);
   if (report.missingRuntime) {
     issues.push({ code: "missing_runtime", message: "window.automedia was not injected" });
     return emptyReport(issues);
@@ -81,7 +101,12 @@ async function validatePage(
   if (!report.diagnostics.controlApi) {
     issues.push({ code: "missing_control_api", message: "setControls API is missing" });
   }
-  for (const error of report.diagnostics.scriptErrors) {
+  // One error reaches several of these: a seek, the runtime's own listeners,
+  // and Playwright. Report each once, keeping the seek's time.
+  const seen = new Set(issues.map((issue) => errorCore(issue.message)));
+  for (const error of [...report.diagnostics.scriptErrors, ...pageErrors]) {
+    if (seen.has(errorCore(error))) continue;
+    seen.add(errorCore(error));
     issues.push({ code: "script_error", message: error });
   }
   for (const resource of failedResources) {
@@ -109,6 +134,25 @@ async function validatePage(
     issues,
     diagnostics,
   };
+}
+
+/** 0 and the start of every visual or music clip, in order. */
+function seekTimes(composition: Composition, media: MediaDocument): number[] {
+  const starts = media.tracks
+    .filter((track) => track.kind === "block" || track.kind === "music")
+    .map((track) => track.start)
+    .filter((start) => start < composition.durationSeconds);
+  return [...new Set([0, ...starts])].toSorted((a, b) => a - b);
+}
+
+/** The first line of a page error, without Playwright's call prefix or the stack. */
+function errorSummary(message: string): string {
+  return (message.split("\n")[0] ?? message).replace(/^page\.evaluate: /, "");
+}
+
+/** "Uncaught TypeError: x (seeking to 1s)" and "x" are the same error. */
+function errorCore(message: string): string {
+  return message.replace(/^(Uncaught )?(\w*Error: )?/, "").replace(/ \(seeking to [^)]*\)$/, "");
 }
 
 function emptyReport(issues: ValidationIssue[]): ValidationReport {

@@ -70,6 +70,18 @@ const zControl = z.union([
   }),
 ]);
 
+/**
+ * Results name compositions `compositionId` and exports `jobId`, as the
+ * inputs do, so an agent can pass a result's fields straight back.
+ */
+function agentComposition<T extends { id: string }>({ id, ...rest }: T) {
+  return { compositionId: id, ...rest };
+}
+
+function agentJob<T extends { id: string }>({ id, ...rest }: T) {
+  return { jobId: id, ...rest };
+}
+
 function toolResult<T>(data: T) {
   return {
     content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
@@ -123,17 +135,22 @@ export function createMcpServer(engineFor: EngineFor): McpServer {
         "List compositions in sidebar order. Each row includes a lease when another agent claimed it.",
       inputSchema: z.object({}),
     },
-    tool((_args: NoArgs, engine) => engine.call("listCompositions")),
+    tool(async (_args: NoArgs, engine) =>
+      (await engine.call("listCompositions")).map(agentComposition),
+    ),
   );
 
   server.registerTool(
     "workspace_status",
     {
       description:
-        "See queued exports and composition leases before starting parallel work. Claim a composition if you will write.",
-      inputSchema: z.object({}),
+        "See queued exports and composition leases before starting parallel work. Claim a composition if you will write. Pass compositionId to see only that composition and its exports.",
+      inputSchema: z.object({ compositionId: zId.optional() }),
     },
-    tool((_args: NoArgs, engine) => engine.call("workspaceStatus")),
+    tool(async (args: { compositionId?: string | undefined }, engine) => {
+      const status = await engine.call("workspaceStatus", args);
+      return { ...status, exports: status.exports.map(agentJob) };
+    }),
   );
 
   server.registerTool(
@@ -168,10 +185,14 @@ export function createMcpServer(engineFor: EngineFor): McpServer {
     "reorder_compositions",
     {
       description:
-        "Set the sidebar project order. Unknown ids are ignored; missing ids stay at the end.",
-      inputSchema: z.object({ ids: z.array(zId).min(1) }),
+        "Set the sidebar project order. Unknown compositionIds are ignored; missing ones stay at the end.",
+      inputSchema: z.object({ compositionIds: z.array(zId).min(1) }),
     },
-    tool((args: { ids: string[] }, engine) => engine.call("reorderCompositions", args)),
+    tool(async (args: { compositionIds: string[] }, engine) =>
+      (await engine.call("reorderCompositions", { ids: args.compositionIds })).map(
+        agentComposition,
+      ),
+    ),
   );
 
   server.registerTool(
@@ -180,7 +201,9 @@ export function createMcpServer(engineFor: EngineFor): McpServer {
       description: "Get one composition manifest.",
       inputSchema: z.object({ compositionId: zId }),
     },
-    tool((args: CompositionArgs, engine) => engine.call("getComposition", args)),
+    tool(async (args: CompositionArgs, engine) =>
+      agentComposition(await engine.call("getComposition", args)),
+    ),
   );
 
   server.registerTool(
@@ -214,8 +237,8 @@ export function createMcpServer(engineFor: EngineFor): McpServer {
         example: z.string().optional(),
       }),
     },
-    tool((args: { name?: string | undefined; example?: string | undefined }, engine) =>
-      engine.call("createComposition", args),
+    tool(async (args: { name?: string | undefined; example?: string | undefined }, engine) =>
+      agentComposition(await engine.call("createComposition", args)),
     ),
   );
 
@@ -234,7 +257,9 @@ export function createMcpServer(engineFor: EngineFor): McpServer {
         background: z.string().optional(),
       }),
     },
-    tool((args: UpdateSettingsInput, engine) => engine.call("updateSettings", args)),
+    tool(async (args: UpdateSettingsInput, engine) =>
+      agentComposition(await engine.call("updateSettings", args)),
+    ),
   );
 
   server.registerTool(
@@ -267,8 +292,24 @@ export function createMcpServer(engineFor: EngineFor): McpServer {
         "Import a .automedia snapshot as a new composition in the library. Always creates a copy with a new id.",
       inputSchema: z.object({ path: z.string().min(1) }),
     },
-    tool((args: { path: string }, engine) =>
-      engine.call("importProject", { path: path.resolve(args.path) }),
+    tool(async (args: { path: string }, engine) => {
+      const imported = await engine.call("importProject", { path: path.resolve(args.path) });
+      return { ...imported, composition: agentComposition(imported.composition) };
+    }),
+  );
+
+  server.registerTool(
+    "import_asset",
+    {
+      description:
+        "Copy an image, font, audio, or video file from a filesystem path into the composition's assets/. Returns the asset name, renamed if one already exists. Blocks reference it as ../../assets/<asset>.",
+      inputSchema: z.object({ compositionId: zId, path: z.string().min(1) }),
+    },
+    tool((args: { compositionId: string; path: string }, engine) =>
+      engine.call("importAsset", {
+        compositionId: args.compositionId,
+        source: path.resolve(args.path),
+      }),
     ),
   );
 
@@ -467,7 +508,8 @@ export function createMcpServer(engineFor: EngineFor): McpServer {
   server.registerTool(
     "validate",
     {
-      description: "Load the composition in headless Chromium and report runtime issues.",
+      description:
+        "Load the composition in headless Chromium, seek to the start of every clip once its fonts load, and report runtime issues: uncaught errors and rejected promises from scripts and renderers, and failed resources.",
       inputSchema: z.object({ compositionId: zId }),
     },
     tool((args: CompositionArgs, engine) => engine.call("validate", args)),
@@ -477,24 +519,41 @@ export function createMcpServer(engineFor: EngineFor): McpServer {
     "start_export",
     {
       description:
-        "Queue a PNG, GIF, WebP, MP4, WebM, MP3, WAV, or OGG export. Validate must pass. Jobs from all agents share a few export slots, taken from each agent in turn. A successful job includes contentUrl and outputPath. Audio formats need an unmuted audio, video, or music track.",
+        "Queue a PNG, GIF, WebP, MP4, WebM, MP3, WAV, or OGG export. Validate must pass. Jobs from all agents share a few export slots, taken from each agent in turn. A successful job includes contentUrl and outputPath. Pass path to also save the finished file there. Audio formats need an unmuted audio, video, or music track.",
       inputSchema: z.object({
         compositionId: zId,
         format: z.enum(exportFormats),
-        quality: z.number().int().min(1).max(100).optional(),
-        timeSeconds: z.number().min(0).optional(),
+        quality: z
+          .number()
+          .int()
+          .min(1)
+          .max(100)
+          .optional()
+          .describe("WebP, MP4, WebM, MP3, and OGG only."),
+        timeSeconds: z.number().min(0).optional().describe("PNG only: the time to capture."),
+        path: z
+          .string()
+          .min(1)
+          .optional()
+          .describe("A file path to save the finished export to, as well as exports/."),
       }),
     },
-    tool((args: StartExportInput, engine) => engine.call("startExport", args)),
+    // Relative paths resolve against the caller's directory, like save_project.
+    tool(async (args: StartExportInput, engine) => {
+      const input = { ...args };
+      if (args.path !== undefined) input.path = path.resolve(args.path);
+      return agentJob(await engine.call("startExport", input));
+    }),
   );
 
   server.registerTool(
     "get_export",
     {
-      description: "Poll an export job. A completed job includes contentUrl.",
+      description:
+        "Poll an export job. A completed job includes contentUrl, and path when start_export was given one.",
       inputSchema: z.object({ jobId: zId }),
     },
-    tool((args: { jobId: string }, engine) => engine.call("getExport", args)),
+    tool(async (args: { jobId: string }, engine) => agentJob(await engine.call("getExport", args))),
   );
 
   server.registerTool(
@@ -503,7 +562,9 @@ export function createMcpServer(engineFor: EngineFor): McpServer {
       description: "Cancel a running export. No finished file is left behind.",
       inputSchema: z.object({ jobId: zId }),
     },
-    tool((args: { jobId: string }, engine) => engine.call("cancelExport", args)),
+    tool(async (args: { jobId: string }, engine) =>
+      agentJob(await engine.call("cancelExport", args)),
+    ),
   );
 
   return server;

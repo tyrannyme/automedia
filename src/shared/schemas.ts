@@ -153,9 +153,15 @@ const exportQualitySchema = v.optional(
   v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(100)),
 );
 const exportTimeSchema = v.optional(v.pipe(v.number(), v.minValue(0)));
-const exportBaseEntries = { compositionId: idSchema };
+const exportBaseEntries = {
+  compositionId: idSchema,
+  /** An absolute path to also save the finished file to. */
+  path: v.optional(v.pipe(v.string(), v.minLength(1))),
+};
 
-export const startExportInputSchema = v.union([
+// A variant, not a union, so a wrong field names itself instead of failing
+// every member with "Expected Object but received Object".
+export const startExportInputSchema = v.variant("format", [
   v.strictObject({ ...exportBaseEntries, format: v.literal("png"), timeSeconds: exportTimeSchema }),
   v.strictObject({ ...exportBaseEntries, format: v.literal("gif") }),
   v.strictObject({
@@ -203,6 +209,8 @@ export type StartExportInput = {
   format: ExportFormat;
   quality?: number | undefined;
   timeSeconds?: number | undefined;
+  /** An absolute path to also save the finished file to. */
+  path?: string | undefined;
 };
 export type UpdateSettingsInput = v.InferOutput<typeof updateSettingsSchema>;
 export type AppSettings = v.InferOutput<typeof appSettingsSchema>;

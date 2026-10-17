@@ -34,6 +34,9 @@ type McpCallParams = {
   };
 };
 
+/** MCP results name the job `jobId`. */
+type AgentJob = Omit<ExportJob, "id"> & { jobId: string };
+
 let requestId = 0;
 
 const missing = existsSync(chromium.executablePath()) ? [] : ["Playwright Chromium"];
@@ -147,9 +150,9 @@ async function notifyInitialized(server: LoopbackServer, protocolVersion: string
   await response.arrayBuffer();
 }
 
-async function pollExport(server: LoopbackServer, jobId: string): Promise<ExportJob> {
+async function pollExport(server: LoopbackServer, jobId: string): Promise<AgentJob> {
   for (let attempt = 0; attempt < 120; attempt += 1) {
-    const job = await mcpRequest<ExportJob>(server, "tools/call", {
+    const job = await mcpRequest<AgentJob>(server, "tools/call", {
       name: "get_export",
       arguments: { jobId },
     });
@@ -187,7 +190,7 @@ describe("agent loop integration", () => {
       const protocolVersion = await initializeMcp(server);
       await notifyInitialized(server, protocolVersion);
 
-      const proof = await mcpRequest<{ id: string; name: string }>(
+      const proof = await mcpRequest<{ compositionId: string; name: string }>(
         server,
         "tools/call",
         {
@@ -196,10 +199,10 @@ describe("agent loop integration", () => {
         },
         protocolVersion,
       );
-      expect(proof.id).toMatch(/^c[a-z0-9]+$/);
+      expect(proof.compositionId).toMatch(/^c[a-z0-9]+$/);
       expect(proof.name).toBe("Review proof");
 
-      const first = await mcpRequest<{ id: string }>(
+      const first = await mcpRequest<{ compositionId: string }>(
         server,
         "tools/call",
         {
@@ -213,7 +216,7 @@ describe("agent loop integration", () => {
         "tools/call",
         {
           name: "list_files",
-          arguments: { compositionId: first.id },
+          arguments: { compositionId: first.compositionId },
         },
         protocolVersion,
       );
@@ -226,7 +229,7 @@ describe("agent loop integration", () => {
         "tools/call",
         {
           name: "read_file",
-          arguments: { compositionId: first.id, path: htmlPath ?? "" },
+          arguments: { compositionId: first.compositionId, path: htmlPath ?? "" },
         },
         protocolVersion,
       );
@@ -237,22 +240,22 @@ describe("agent loop integration", () => {
         "tools/call",
         {
           name: "validate",
-          arguments: { compositionId: first.id },
+          arguments: { compositionId: first.compositionId },
         },
         protocolVersion,
       );
       expect(firstValidation.ok).toBe(true);
 
-      const firstStarted = await mcpRequest<ExportJob>(
+      const firstStarted = await mcpRequest<AgentJob>(
         server,
         "tools/call",
         {
           name: "start_export",
-          arguments: { compositionId: first.id, format: "png" },
+          arguments: { compositionId: first.compositionId, format: "png" },
         },
         protocolVersion,
       );
-      const firstCompleted = await pollExport(server, firstStarted.id);
+      const firstCompleted = await pollExport(server, firstStarted.jobId);
       expect(firstCompleted.phase).toBe("completed");
       expect(firstCompleted.contentUrl).toContain(`${server.url}/compositions/`);
       const firstBytes = await fetch(firstCompleted.contentUrl!);
@@ -260,7 +263,7 @@ describe("agent loop integration", () => {
       expect(firstBytes.headers.get("content-type")).toContain("image/png");
       await firstBytes.arrayBuffer();
 
-      const second = await mcpRequest<{ id: string }>(
+      const second = await mcpRequest<{ compositionId: string }>(
         server,
         "tools/call",
         {
@@ -276,7 +279,7 @@ describe("agent loop integration", () => {
         {
           name: "write_file",
           arguments: {
-            compositionId: second.id,
+            compositionId: second.compositionId,
             path: "assets/beat-ident.ogg",
             encoding: "base64",
             content: fixture.toString("base64"),
@@ -291,7 +294,7 @@ describe("agent loop integration", () => {
         {
           name: "put_track",
           arguments: {
-            compositionId: second.id,
+            compositionId: second.compositionId,
             track: {
               id: "track-audio",
               kind: "audio",
@@ -314,7 +317,7 @@ describe("agent loop integration", () => {
         {
           name: "put_control",
           arguments: {
-            compositionId: second.id,
+            compositionId: second.compositionId,
             control: {
               id: "gain",
               type: "range",
@@ -329,16 +332,16 @@ describe("agent loop integration", () => {
         protocolVersion,
       );
 
-      const secondStarted = await mcpRequest<ExportJob>(
+      const secondStarted = await mcpRequest<AgentJob>(
         server,
         "tools/call",
         {
           name: "start_export",
-          arguments: { compositionId: second.id, format: "png" },
+          arguments: { compositionId: second.compositionId, format: "png" },
         },
         protocolVersion,
       );
-      const secondCompleted = await pollExport(server, secondStarted.id);
+      const secondCompleted = await pollExport(server, secondStarted.jobId);
       expect(secondCompleted.phase).toBe("completed");
       expect(secondCompleted.contentUrl).toContain(`${server.url}/compositions/`);
       const secondBytes = await fetch(secondCompleted.contentUrl!);
@@ -349,7 +352,7 @@ describe("agent loop integration", () => {
       const activity = await mcpRequest<{ entries: Array<{ operation: string }> }>(
         server,
         "tools/call",
-        { name: "get_activity", arguments: { compositionId: second.id } },
+        { name: "get_activity", arguments: { compositionId: second.compositionId } },
         protocolVersion,
       );
       expect(activity.entries.map((entry) => entry.operation)).toEqual(

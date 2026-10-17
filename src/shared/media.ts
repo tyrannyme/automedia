@@ -1,4 +1,4 @@
-import { exportFormats, imageExtensions, mediaExtensions } from "./limits.ts";
+import { exportFormats, fontExtensions, imageExtensions, mediaExtensions } from "./limits.ts";
 
 export function isMediaExtension(value: string): value is (typeof mediaExtensions)[number] {
   return mediaExtensions.some((extension) => extension === value);
@@ -6,6 +6,10 @@ export function isMediaExtension(value: string): value is (typeof mediaExtension
 
 export function isImageExtension(value: string): value is (typeof imageExtensions)[number] {
   return imageExtensions.some((extension) => extension === value);
+}
+
+export function isFontExtension(value: string): value is (typeof fontExtensions)[number] {
+  return fontExtensions.some((extension) => extension === value);
 }
 
 export function isAssetExtension(value: string): boolean {
