@@ -132,14 +132,14 @@ AUTOMEDIA_LOOPBACK_PORT=49000 AUTOMEDIA_CDP_PORT=49001 pnpm dev
 
 ## MCP tools
 
-- Projects: `list_compositions`, `get_composition`, `create_composition`, `update_settings`, `delete_composition`, `save_project`, `import_project`, `get_activity`, `list_examples`, `reorder_compositions`, `claim_composition`, `release_composition`, `workspace_status`
+- Projects: `list_compositions`, `get_composition`, `create_composition`, `update_settings`, `delete_composition`, `save_project`, `import_project`, `import_asset`, `get_activity`, `list_examples`, `reorder_compositions`, `claim_composition`, `release_composition`, `workspace_status`
 - Files: `list_files`, `read_file`, `write_file`, `delete_file`
 - Media: `get_media`, `probe_media`, `create_block`, `create_music_block`, `put_track`, `delete_track`, `put_marker`, `delete_marker`
 - Controls: `list_controls`, `put_control`, `delete_control`
 - Runtime: `get_runtime_catalog`, `get_runtime_types`
 - Quality and export: `validate`, `start_export`, `get_export`, `cancel_export`
 
-`delete_composition` moves a project into `.trash`. `workspace_status` reports export jobs and composition leases. Claim a composition before parallel writes. `start_export` runs validation first and queues jobs, which share the engine's export slots with every other agent's. Supported formats are PNG, GIF, WebP, MP4, WebM, MP3, WAV, and OGG. PNG can capture a single time; GIF, WebP, MP4, and WebM render the full composition. MP3, WAV, and OGG export audio only. MP4 and WebM require even dimensions and an opaque background.
+`delete_composition` moves a project into `.trash`. `workspace_status` reports export jobs and composition leases, for one composition when given a `compositionId`. Results name compositions `compositionId` and export jobs `jobId`, as inputs do. Claim a composition before parallel writes. `start_export` runs validation first and queues jobs, which share the engine's export slots with every other agent's. Pass it a `path` to also save the finished file there. `import_asset` copies an image, font, or media file from disk into `assets/`. `validate` seeks to the start of every clip after its fonts load and reports uncaught errors and rejected promises from scripts and renderers. Supported formats are PNG, GIF, WebP, MP4, WebM, MP3, WAV, and OGG. PNG can capture a single time; GIF, WebP, MP4, and WebM render the full composition. MP3, WAV, and OGG export audio only. MP4 and WebM require even dimensions and an opaque background.
 
 ## Website
 

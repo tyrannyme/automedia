@@ -1,5 +1,5 @@
 import path from "node:path";
-import { rename } from "node:fs/promises";
+import { copyFile, rename } from "node:fs/promises";
 import { AppError } from "@shared/errors.ts";
 import {
   exportExpectsAudio,
@@ -35,7 +35,10 @@ export type ExportJob = {
   quality?: number;
   timeSeconds?: number;
   contentUrl?: string;
+  /** The file in the composition's exports/. */
   outputPath?: string;
+  /** Where the caller asked for a copy. Written before the job completes. */
+  path?: string;
   error?: { code: string; message: string };
 };
 
@@ -76,6 +79,9 @@ export class ExportQueue {
     if (input.format !== "png" && input.timeSeconds !== undefined) {
       throw new AppError("invalid_export", "timeSeconds is PNG-only");
     }
+    if (input.path !== undefined && !path.isAbsolute(input.path)) {
+      throw new AppError("invalid_export", "path must be absolute");
+    }
     const composition = await this.store.get(input.compositionId);
     if (
       isVideoExportFormat(input.format) &&
@@ -114,6 +120,9 @@ export class ExportQueue {
     }
     if (input.timeSeconds !== undefined) {
       job.timeSeconds = input.timeSeconds;
+    }
+    if (input.path !== undefined) {
+      job.path = input.path;
     }
     this.jobs.set(job.id, job);
     this.forgetOldJobs();
@@ -261,6 +270,10 @@ export class ExportQueue {
       await rename(tempPath, finalPath);
       tempPath = undefined;
       this.assertActive(job);
+      if (job.path) {
+        await ensureDir(path.dirname(job.path));
+        await copyFile(finalPath, job.path);
+      }
       job.phase = "completed";
       job.contentUrl = compositionExportUrl(
         resolveLoopbackUrl(this.loopbackUrl),

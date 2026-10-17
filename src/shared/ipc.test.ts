@@ -37,6 +37,16 @@ describe("typed IPC contracts", () => {
     }
   });
 
+  it("names the rejected field instead of every union member", () => {
+    const result = v.safeParse(startExportInputSchema, {
+      compositionId: "c123",
+      format: "webp",
+      timeSeconds: 0,
+    });
+    expect(result.success).toBe(false);
+    expect(result.issues?.map((issue) => v.getDotPath(issue))).toEqual(["timeSeconds"]);
+  });
+
   it("rejects timeSeconds for non-PNG exports at the IPC boundary", () => {
     for (const format of ["gif", "webp", "mp4", "webm", "mp3", "wav", "ogg"] as const) {
       expect(

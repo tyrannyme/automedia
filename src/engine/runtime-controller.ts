@@ -452,6 +452,18 @@ export const controllerSource = String.raw`
     state.raf = window.requestAnimationFrame(animationLoop);
   }
 
+  // Text measured before its font arrives uses the fallback font's metrics.
+  // A block is display: none until its first seek, so it requests its fonts
+  // only then. Laying out first makes it request them now.
+  async function waitForFonts() {
+    void document.documentElement.offsetWidth;
+    if (document.fonts.status !== "loading") return;
+    await Promise.race([
+      document.fonts.ready,
+      new Promise((resolve) => window.setTimeout(resolve, 5000)),
+    ]);
+  }
+
   async function waitForPageReady() {
     const deadline = performance.now() + 5000;
     while (document.readyState !== "complete" && performance.now() < deadline) {
@@ -524,6 +536,7 @@ export const controllerSource = String.raw`
         durationSeconds: metrics.durationSeconds,
         controls: { ...state.controls },
       };
+      await waitForFonts();
       for (const renderer of state.renderers) {
         await renderer(context);
       }

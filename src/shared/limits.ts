@@ -35,6 +35,8 @@ export const mediaExtensions = [
 
 export const imageExtensions = ["gif", "jpeg", "jpg", "png", "svg", "webp"] as const;
 
+export const fontExtensions = ["otf", "ttf", "woff", "woff2"] as const;
+
 export const exportFormats = ["png", "gif", "webp", "mp4", "webm", "mp3", "wav", "ogg"] as const;
 
 export const loopbackHost = "127.0.0.1";
