@@ -12,11 +12,16 @@ export function webGpuArgs(): string[] {
  * browser UI to start and about half the memory of full Chromium. It keeps
  * WebGL2 and WebGPU through SwiftShader.
  */
-export function playwrightLaunchOptions(): LaunchOptions {
+export function playwrightLaunchOptions(extraArgs: string[] = []): LaunchOptions {
   return {
     handleSIGINT: false,
     handleSIGTERM: false,
-    args: ["--autoplay-policy=no-user-gesture-required", "--mute-audio", ...webGpuArgs()],
+    args: [
+      "--autoplay-policy=no-user-gesture-required",
+      "--mute-audio",
+      ...webGpuArgs(),
+      ...extraArgs,
+    ],
   };
 }
 
@@ -25,15 +30,15 @@ export function playwrightLaunchOptions(): LaunchOptions {
  * install renders without a separate `playwright install` step, unless
  * PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD is set.
  */
-export async function launchChromium(): Promise<Browser> {
+export async function launchChromium(extraArgs: string[] = []): Promise<Browser> {
   try {
-    return await chromium.launch(playwrightLaunchOptions());
+    return await chromium.launch(playwrightLaunchOptions(extraArgs));
   } catch (error) {
     if (!(error instanceof Error) || !isMissingBrowser(error.message)) throw error;
     // Playwright's own switch for "never download browsers", which CI sets.
     if (process.env.PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD) throw error;
     await installHeadlessShell();
-    return chromium.launch(playwrightLaunchOptions());
+    return chromium.launch(playwrightLaunchOptions(extraArgs));
   }
 }
 

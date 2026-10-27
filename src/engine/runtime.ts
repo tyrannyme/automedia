@@ -72,6 +72,17 @@ export function getRuntimeTypes(): string {
   return runtimeTypes;
 }
 
+/**
+ * Every page loads the Tailwind browser build, and with it Preflight, which
+ * caps images and videos at their container's width. A block that sizes an
+ * image wider, say to crop it, should get that size. This lifts the cap in
+ * Tailwind's own base layer, so `max-w-*` utilities and a block's own CSS
+ * still win. The layer order restates Tailwind's, since this sheet comes first.
+ */
+export const baseStyleSource =
+  "@layer properties, theme, base, components, utilities;" +
+  "@layer base { html img, html video { max-width: none; } }";
+
 export function injectRuntime(
   html: string,
   composition: {
@@ -92,6 +103,7 @@ export function injectRuntime(
 ): string {
   const headInjection = [
     `<script type="importmap">${importMapJson()}</script>`,
+    `<style>${baseStyleSource}</style>`,
     `<script src="/runtime/assets/@tailwindcss/browser/dist/index.global.js"></script>`,
     `<script>${controllerSource}</script>`,
     `<script type="application/json" id="automedia-documents">${JSON.stringify({

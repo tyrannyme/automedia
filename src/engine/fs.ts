@@ -35,6 +35,14 @@ export async function pathExists(filePath: string): Promise<boolean> {
   }
 }
 
+export async function isFile(filePath: string): Promise<boolean> {
+  try {
+    return (await stat(filePath)).isFile();
+  } catch {
+    return false;
+  }
+}
+
 export function resolveInside(root: string, relativePath: string): string {
   const normalized = relativePath.replaceAll("\\", "/");
   if (normalized.startsWith("/") || normalized.includes("\0")) {

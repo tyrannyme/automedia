@@ -5,9 +5,10 @@ import { afterAll, afterEach, describe, expect, it } from "vitest";
 import { AppError } from "@shared/errors.ts";
 import type { Composition } from "@shared/schemas.ts";
 import { CompositionStore } from "./store.ts";
-import { frameDelays, videoEncoding } from "./export-capture.ts";
+import { frameDelays } from "./export-capture.ts";
 import { ExportQueue, listExports, type ExportJob } from "./export.ts";
 import { RenderPool } from "./render-pool.ts";
+import { encoderChoices } from "./video-encoder.ts";
 
 const dirs: string[] = [];
 
@@ -52,11 +53,12 @@ describe("ExportQueue", () => {
   });
 
   it("maps quality to H.264 bitrate and VP9 constant quality", () => {
-    expect(videoEncoding("mp4", 80).codec).toBe("avc");
-    expect(videoEncoding("webm", 80).codec).toBe("vp9");
-    expect(videoEncoding("webm", 1).rate).toEqual({ quantizer: 40 });
-    expect(videoEncoding("webm", 100).rate).toEqual({ quantizer: 15 });
-    expect(videoEncoding("mp4", 80).rate).toEqual({ bitrate: 4_250_000 });
+    const [nvenc, x264] = encoderChoices("mp4", 80);
+    expect([nvenc?.name, x264?.name]).toEqual(["h264_nvenc", "libx264"]);
+    expect(x264?.options["b:v"]).toBe("4250000");
+    expect(encoderChoices("webm", 80)[0]?.name).toBe("libvpx-vp9");
+    expect(encoderChoices("webm", 1)[0]?.options.crf).toBe("40");
+    expect(encoderChoices("webm", 100)[0]?.options.crf).toBe("15");
   });
 
   it.each([

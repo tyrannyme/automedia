@@ -21,6 +21,12 @@ export function compositionContentUrl(baseUrl: string, compositionId: string): s
   return `${origin}/compositions/${encodeURIComponent(compositionId)}/content/index.html`;
 }
 
+/** The composition as exports load it, with seek proxies for its videos. */
+export function compositionRenderUrl(baseUrl: string, compositionId: string): string {
+  const origin = baseUrl.replace(/\/$/, "");
+  return `${origin}/compositions/${encodeURIComponent(compositionId)}/render/index.html`;
+}
+
 export function compositionExportUrl(
   baseUrl: string,
   compositionId: string,

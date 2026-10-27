@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { decodeFrames } from "modern-gif";
 import { AppError } from "@shared/errors.ts";
-import { ALL_FORMATS, FilePathSource, Input, VideoSampleSink } from "./mediabunny.ts";
+import { Decoder, Demuxer, FilterAPI, type Frame } from "node-av";
 import { decodePng } from "./png.ts";
 import { decodeWebp } from "./animation.ts";
 
@@ -26,17 +26,35 @@ export async function decodeRgba(filePath: string, timeSeconds?: number): Promis
   throw new AppError("probe_failed", `cannot decode .${extension} pixels`);
 }
 
+/**
+ * The frame shown at `timeSeconds`, converted the way players convert it:
+ * with the matrix and range the video is tagged with.
+ */
 async function decodeVideoFrame(filePath: string, timeSeconds?: number): Promise<Buffer> {
-  using input = new Input({ source: new FilePathSource(filePath), formats: ALL_FORMATS });
-  const track = await input.getPrimaryVideoTrack();
-  if (!track) throw new AppError("probe_failed", "video has no video track");
-  using sample = await new VideoSampleSink(track).getSample(
-    timeSeconds ?? (await track.getFirstTimestamp()),
-  );
-  if (!sample) throw new AppError("probe_failed", "video has no frames");
-  const rgba = Buffer.alloc(sample.allocationSize({ format: "RGBA" }));
-  await sample.copyTo(rgba, { format: "RGBA" });
-  return rgba;
+  await using input = await Demuxer.open(filePath);
+  const stream = input.video();
+  if (!stream) throw new AppError("probe_failed", "video has no video track");
+  using decoder = await Decoder.create(stream);
+  using toRgba = FilterAPI.create("scale=flags=accurate_rnd+full_chroma_int,format=rgba");
+  const seconds = (frame: Frame) => (Number(frame.pts) * stream.timeBase.num) / stream.timeBase.den;
+  let shown: Frame | null = null;
+  try {
+    for await (const frame of decoder.frames(input.packets(stream.index))) {
+      if (!frame) break;
+      if (shown && timeSeconds !== undefined && seconds(frame) > timeSeconds + 1e-6) break;
+      shown?.free();
+      shown = frame.clone();
+      if (timeSeconds === undefined) break;
+    }
+    if (!shown) throw new AppError("probe_failed", "video has no frames");
+    const [rgba] = await toRgba.processAll(shown);
+    if (!rgba) throw new AppError("probe_failed", "video frame did not convert");
+    const pixels = rgba.toBuffer();
+    rgba.free();
+    return pixels;
+  } finally {
+    shown?.free();
+  }
 }
 
 export function pixel(

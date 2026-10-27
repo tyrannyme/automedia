@@ -2,7 +2,7 @@ import { copyFile } from "node:fs/promises";
 import path from "node:path";
 import * as v from "valibot";
 import { AppError } from "@shared/errors.ts";
-import { isAssetExtension, isFontExtension } from "@shared/media.ts";
+import { isAssetExtension, isFontExtension, isTextExtension } from "@shared/media.ts";
 import { ensureProjectArchiveExtension } from "@shared/project-archive.ts";
 import {
   controlIdSchema,
@@ -235,7 +235,11 @@ export function createOperations(context: EngineContext) {
       async ({ compositionId, source }) => {
         await store.get(compositionId);
         const extension = path.extname(source).slice(1).toLowerCase();
-        if (!isAssetExtension(extension) && !isFontExtension(extension)) {
+        if (
+          !isAssetExtension(extension) &&
+          !isFontExtension(extension) &&
+          !isTextExtension(extension)
+        ) {
           throw new AppError("invalid_asset", `unsupported asset extension: ${extension}`);
         }
         const assetsDir = path.join(store.compositionDir(compositionId), "assets");

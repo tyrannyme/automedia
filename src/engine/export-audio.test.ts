@@ -89,7 +89,7 @@ describe("mixTimeline", () => {
 
   it("resamples sources to the mix rate and plays music from zero", async () => {
     const samples = Array.from({ length: 11_025 }, () => 0.25);
-    const pcm = await mixTimeline(1, [musicClip(encodeWav([samples], 22_050), 1)]);
+    const pcm = await mixTimeline(1, [musicClip(encodeWav([samples], 22_050), 0, 1)]);
     expect(at(pcm, 0.25)).toBeCloseTo(0.25, 2);
     expect(at(pcm, 0.75)).toBe(0);
   });

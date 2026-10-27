@@ -41,4 +41,8 @@ coverage/
 # Local README banner export workspace
 .automedia-readme-banner/
 .automedia-site-gallery/
+.automedia-bench/
 site/.wrangler/
+
+# Local notes
+ISSUES.md

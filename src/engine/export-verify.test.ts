@@ -3,11 +3,22 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Composition } from "@shared/schemas.ts";
-import { encodeAudioFile, openVideoWriter } from "./export-capture.ts";
+import { encodeAudioFile, openVideoWriter, type VideoWriter } from "./export-capture.ts";
+import { openFrameConverter } from "./video-encoder.ts";
 import { mixSampleRate, type Pcm } from "./export-audio.ts";
 import { verifyAudio, verifyVideo } from "./export-verify.ts";
 import { decodeRgba, pixel } from "./rgba.ts";
 import { ALL_FORMATS, AudioSampleSink, FilePathSource, Input } from "./mediabunny.ts";
+import {
+  AV_CODEC_FLAG_QSCALE,
+  AV_PIX_FMT_RGBA,
+  Encoder,
+  FF_ENCODER_MJPEG,
+  FF_QP2LAMBDA,
+  FilterAPI,
+  Frame,
+  Rational,
+} from "node-av";
 
 let dir: string;
 
@@ -27,6 +38,37 @@ const durationSeconds = 1;
 // SAFETY: verification reads only size, frame rate, and duration from the composition.
 const composition = { width, height, fps, durationSeconds } as Composition;
 
+/** A solid frame as the frame farm captures it: a BT.601 full-range JPEG. */
+async function solidJpeg(rgb: [number, number, number]): Promise<Uint8Array> {
+  const rgba = Buffer.alloc(width * height * 4);
+  for (let index = 0; index < width * height; index += 1) rgba.set([...rgb, 255], index * 4);
+  const frame = Frame.fromVideoBuffer(rgba, { width, height, format: AV_PIX_FMT_RGBA });
+  frame.timeBase = new Rational(1, fps);
+  frame.pts = 0n;
+  const convert = FilterAPI.create("scale=out_color_matrix=bt601:out_range=pc,format=yuvj420p");
+  const [yuv] = await convert.processAll(frame);
+  if (!yuv) throw new Error("no JPEG frame");
+  const jpeg = await Encoder.encodeOne(FF_ENCODER_MJPEG, yuv, {
+    // Quality 2 of 31, about what the frame farm asks Chromium for.
+    context: { flags: AV_CODEC_FLAG_QSCALE, globalQuality: 2 * FF_QP2LAMBDA },
+  });
+  convert.close();
+  return jpeg;
+}
+
+async function addSolidFrames(
+  writer: VideoWriter,
+  rgb: [number, number, number],
+  count: number,
+): Promise<void> {
+  const converter = await openFrameConverter();
+  const jpeg = await solidJpeg(rgb);
+  for (let frame = 0; frame < count; frame += 1) {
+    await writer.addFrame(frame, await converter.convert(jpeg));
+  }
+  converter.close();
+}
+
 function tone(seconds: number): Pcm {
   const plane = Float32Array.from(
     { length: Math.round(seconds * mixSampleRate) },
@@ -44,11 +86,7 @@ async function writeVideo(format: "mp4" | "webm", withAudio: boolean): Promise<s
     80,
     withAudio ? tone(durationSeconds) : undefined,
   );
-  const data = new Uint8Array(width * height * 4);
-  for (let index = 0; index < width * height; index += 1) data.set([200, 40, 90, 255], index * 4);
-  for (let frame = 0; frame < fps * durationSeconds; frame += 1) {
-    await writer.addFrame(frame, { width, height, data });
-  }
+  await addSolidFrames(writer, [200, 40, 90], fps * durationSeconds);
   await writer.finish();
   return filePath;
 }
@@ -138,10 +176,7 @@ describe("audio export encoding and verification", () => {
     for (const format of ["mp4", "webm"] as const) {
       const filePath = path.join(dir, `onset.${format}`);
       const writer = await openVideoWriter(filePath, format, composition, 80, toneFrom(0.5, 1));
-      const data = new Uint8Array(width * height * 4).fill(255);
-      for (let frame = 0; frame < fps; frame += 1) {
-        await writer.addFrame(frame, { width, height, data });
-      }
+      await addSolidFrames(writer, [255, 255, 255], fps);
       await writer.finish();
       expect(Math.abs((await decodedOnset(filePath)) - 0.5), format).toBeLessThan(0.003);
     }

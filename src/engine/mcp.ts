@@ -302,7 +302,7 @@ export function createMcpServer(engineFor: EngineFor): McpServer {
     "import_asset",
     {
       description:
-        "Copy an image, font, audio, or video file from a filesystem path into the composition's assets/. Returns the asset name, renamed if one already exists. Blocks reference it as ../../assets/<asset>.",
+        "Copy an image, font, text (.txt, such as a font licence), audio, or video file from a filesystem path into the composition's assets/. Returns the asset name, renamed if one already exists. Blocks reference it as ../../assets/<asset>.",
       inputSchema: z.object({ compositionId: zId, path: z.string().min(1) }),
     },
     tool((args: { compositionId: string; path: string }, engine) =>
@@ -385,7 +385,7 @@ export function createMcpServer(engineFor: EngineFor): McpServer {
     "create_block",
     {
       description:
-        "Add an HTML/CSS/JS block to the timeline. Defaults to the first compatible lane without overlapping existing clips. Pass lane to choose a track, including a new one.",
+        "Add an HTML/CSS/JS block to the timeline. Defaults to the first compatible lane without overlapping existing clips. Pass lane to choose a track, including a new one. Blocks load Tailwind's Preflight reset, except that img and video keep any width they are given, even past their container: add max-w-full to cap one.",
       inputSchema: z.object({
         compositionId: zId,
         name: z.string().optional(),
@@ -550,7 +550,7 @@ export function createMcpServer(engineFor: EngineFor): McpServer {
     "get_export",
     {
       description:
-        "Poll an export job. A completed job includes contentUrl, and path when start_export was given one.",
+        "Poll an export job. While a GIF, WebP, MP4, or WebM job is capturing, frame counts the frames captured of frames. A completed job includes contentUrl, and path when start_export was given one.",
       inputSchema: z.object({ jobId: zId }),
     },
     tool(async (args: { jobId: string }, engine) => agentJob(await engine.call("getExport", args))),

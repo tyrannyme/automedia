@@ -1,7 +1,9 @@
 import { existsSync } from "node:fs";
+import path from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { chromium, type Browser, type Page } from "playwright";
 import { controllerSource } from "./runtime-controller.ts";
+import { injectRuntime, packageRoot } from "./runtime.ts";
 import { playwrightLaunchOptions } from "./chromium.ts";
 
 const missing = existsSync(chromium.executablePath()) ? [] : ["Playwright Chromium"];
@@ -250,4 +252,123 @@ integration("preview loop wrap", () => {
     expect(messages).toContain("pause");
     expect(await page.getAttribute("html", "data-automedia-time")).toBe("0.1");
   });
+
+  /** A runtime whose renderer takes 40 ms and records the times it drew. */
+  async function slowRenderer(): Promise<void> {
+    await page.setContent(`<!doctype html>
+<html lang="en" data-automedia-width="80" data-automedia-height="40" data-automedia-fps="30" data-automedia-duration="2">
+  <head>
+    <script type="application/json" id="automedia-documents">{"tracks":[],"controls":[]}</script>
+    <script>${controllerSource}</script>
+  </head>
+  <body>
+    <script>
+      globalThis.drawn = [];
+      globalThis.mostAtOnce = 0;
+      let drawing = 0;
+      window.automedia.registerRenderer(async ({ timeSeconds }) => {
+        drawing += 1;
+        globalThis.mostAtOnce = Math.max(globalThis.mostAtOnce, drawing);
+        await new Promise((resolve) => window.setTimeout(resolve, 40));
+        globalThis.drawn.push(timeSeconds);
+        drawing -= 1;
+      });
+    </script>
+  </body>
+</html>`);
+    await page.evaluate(`globalThis.automedia.ready()`);
+  }
+
+  async function drawn(): Promise<{ drawn: number[]; mostAtOnce: number }> {
+    // SAFETY: slowRenderer's page keeps only numbers in these globals.
+    return (await page.evaluate(
+      `({ drawn: globalThis.drawn, mostAtOnce: globalThis.mostAtOnce })`,
+    )) as {
+      drawn: number[];
+      mostAtOnce: number;
+    };
+  }
+
+  it("draws only the newest of a burst of seek messages, one at a time", async () => {
+    await slowRenderer();
+    await page.evaluate(`(async () => {
+      for (let index = 1; index <= 20; index += 1) {
+        window.postMessage({ source: "automedia", type: "seek", timeSeconds: index / 20, frame: index }, "*");
+        await new Promise((resolve) => window.setTimeout(resolve, 5));
+      }
+      await new Promise((resolve) => window.setTimeout(resolve, 400));
+    })()`);
+
+    const result = await drawn();
+    expect(result.drawn.length).toBeLessThan(10);
+    expect(result.drawn.at(-1)).toBe(1);
+    expect(result.mostAtOnce).toBe(1);
+  }, 15_000);
+
+  it("does not redraw an old time when paused again", async () => {
+    await slowRenderer();
+    await page.evaluate(`(async () => {
+      await globalThis.automedia.seek(0.5, 15);
+      globalThis.drawn = [];
+      window.postMessage({ source: "automedia", type: "pause" }, "*");
+      await globalThis.automedia.seek(1.2, 36);
+      await new Promise((resolve) => window.setTimeout(resolve, 200));
+    })()`);
+
+    const result = await drawn();
+    expect(result.drawn).toEqual([1.2]);
+    expect(result.mostAtOnce).toBe(1);
+  }, 15_000);
+
+  it("drops waiting seek messages once a direct seek arrives", async () => {
+    await slowRenderer();
+    await page.evaluate(`(async () => {
+      for (const timeSeconds of [0.1, 0.2, 0.3]) {
+        window.postMessage({ source: "automedia", type: "seek", timeSeconds, frame: 0 }, "*");
+      }
+      await new Promise((resolve) => window.setTimeout(resolve, 10));
+      await globalThis.automedia.seek(1.5, 45);
+      await new Promise((resolve) => window.setTimeout(resolve, 200));
+    })()`);
+
+    const result = await drawn();
+    expect(result.drawn).toEqual([0.1, 1.5]);
+    expect(result.mostAtOnce).toBe(1);
+  }, 15_000);
+
+  it("lets a block size an image wider than its container", async () => {
+    const image = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"/>')}`;
+    const html = injectRuntime(
+      `<!doctype html>
+<html lang="en">
+  <head><style>#own { max-width: 50%; }</style></head>
+  <body>
+    <div style="width: 68px; overflow: hidden">
+      <img id="wide" style="width: 107px" src="${image}" />
+      <img id="utility" class="max-w-full" style="width: 107px" src="${image}" />
+      <img id="own" style="width: 107px" src="${image}" />
+    </div>
+  </body>
+</html>`,
+      { width: 80, height: 40, fps: 30, durationSeconds: 1, background: "#000000" },
+    );
+    await page.route("http://automedia.test/**", (route) =>
+      route.request().url().endsWith("/index.global.js")
+        ? route.fulfill({
+            path: path.join(packageRoot("@tailwindcss/browser"), "dist/index.global.js"),
+            contentType: "text/javascript",
+          })
+        : route.fulfill({ body: html, contentType: "text/html" }),
+    );
+    await page.goto("http://automedia.test/");
+    // Preflight is in once its own rules apply: replaced elements are blocks.
+    await page.waitForFunction(
+      `getComputedStyle(document.getElementById("wide")).display === "block"`,
+    );
+
+    const widths = await page.evaluate(`["wide", "utility", "own"].map(
+      (id) => document.getElementById(id).getBoundingClientRect().width,
+    )`);
+    expect(widths).toEqual([107, 68, 34]);
+  }, 15_000);
 });

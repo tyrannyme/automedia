@@ -49,16 +49,9 @@ export function assetClips(assetsDir: string, tracks: readonly MediaTrack[]): Au
   }));
 }
 
-/** Recorded music plays from the start of the timeline at unity gain. */
-export function musicClip(wav: Uint8Array, durationSeconds: number): AudioClip {
-  return {
-    source: new BufferSource(wav),
-    trimStart: 0,
-    duration: durationSeconds,
-    rate: 1,
-    volume: 1,
-    start: 0,
-  };
+/** Rendered music fills its clip. Its volume is already in the render. */
+export function musicClip(wav: Uint8Array, start: number, duration: number): AudioClip {
+  return { source: new BufferSource(wav), trimStart: 0, duration, rate: 1, volume: 1, start };
 }
 
 /**

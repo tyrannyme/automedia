@@ -1,6 +1,6 @@
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
-import type { CDPSession, Page } from "playwright";
+import type { Page } from "playwright";
 import { AppError, throwIfCanceled } from "@shared/errors.ts";
 import { frameCount, frameFromTime, timeFromFrame } from "@shared/clock.ts";
 import { audibleAssetTracks, audibleMusicTracks, isAudioExportFormat } from "@shared/media.ts";
@@ -16,30 +16,37 @@ import {
   type AudioExportFormat,
   type Pcm,
 } from "./export-audio.ts";
-import { musicAudioTapSource, recordMusicAudio } from "./export-music-audio.ts";
+import { renderMusicAudio } from "./export-music-audio.ts";
 import type { ExportJob } from "./export.ts";
-import { compositionContentUrl, resolveLoopbackUrl, type LoopbackUrlSource } from "./loopback.ts";
+import { farmWorkers, openFarmPage } from "./frame-farm.ts";
+import {
+  compositionContentUrl,
+  compositionRenderUrl,
+  resolveLoopbackUrl,
+  type LoopbackUrlSource,
+} from "./loopback.ts";
 import {
   AudioSampleSource,
+  EncodedPacket,
+  EncodedVideoPacketSource,
   FilePathTarget,
   Mp3OutputFormat,
   Mp4OutputFormat,
   OggOutputFormat,
   Output,
   Quality,
-  VideoSample,
-  VideoSampleSource,
   WavOutputFormat,
   WebMOutputFormat,
   type AudioEncodingConfig,
   type OutputFormat,
-  type QuantitativeQualityOptions,
-  type VideoCodec,
 } from "./mediabunny.ts";
 import { seekInjectedRuntime, waitForPaint } from "./page-runtime.ts";
 import { decodePngOffThread, type RgbaImage } from "./png.ts";
 import type { RenderPool } from "./render-pool.ts";
+import { prepareSeekProxies } from "./seek-proxies.ts";
 import type { CompositionStore } from "./store.ts";
+import type { Frame } from "node-av";
+import { openFrameConverter, openFrameEncoder, type EncodedFrame } from "./video-encoder.ts";
 import {
   encodeAnimatedWebp,
   encodeGif,
@@ -54,7 +61,6 @@ async function withPage<T>(
   loopbackUrl?: LoopbackUrlSource,
 ): Promise<T> {
   return pool.withPage(composition, async (page) => {
-    await page.addInitScript({ content: musicAudioTapSource });
     const url = compositionContentUrl(resolveLoopbackUrl(loopbackUrl), composition.id);
     const response = await page.goto(url, { waitUntil: "load" });
     if (!response || !response.ok()) {
@@ -109,6 +115,9 @@ export function frameDelays(totalFrames: number, fps: number, unitMs: number): n
   return Array.from({ length: totalFrames }, (_, frame) => at(frame + 1) - at(frame));
 }
 
+/** Frames captured so far, of the composition's total. */
+export type CaptureProgress = (frame: number, frames: number) => void;
+
 export async function captureStillSequence(
   pool: RenderPool,
   composition: Composition,
@@ -117,6 +126,7 @@ export async function captureStillSequence(
   isCanceled: () => boolean = () => false,
   setEncodingPhase: () => void = () => undefined,
   loopbackUrl?: LoopbackUrlSource,
+  onProgress: CaptureProgress = () => undefined,
 ): Promise<void> {
   const totalFrames = frameCount(composition.durationSeconds, composition.fps);
   const frameBytes = composition.width * composition.height * 4;
@@ -140,6 +150,7 @@ export async function captureStillSequence(
         await waitForPaint(page);
         const { data } = await screenshotRgba(page, composition);
         frames.push({ rgba: data, durationMs: delays[frame] ?? 0 });
+        onProgress(frame + 1, totalFrames);
       }
     },
     loopbackUrl,
@@ -152,19 +163,6 @@ export async function captureStillSequence(
       : await encodeAnimatedWebp(composition.width, composition.height, frames, job.quality);
   throwIfCanceled(isCanceled);
   await writeFile(outputPath, encoded);
-}
-
-export type VideoEncoding = {
-  codec: VideoCodec;
-  rate: QuantitativeQualityOptions;
-};
-
-export function videoEncoding(format: "mp4" | "webm", quality = 80): VideoEncoding {
-  if (format === "mp4") {
-    return { codec: "avc", rate: { bitrate: 250_000 + quality * 50_000 } };
-  }
-  // Constant quality, like the previous `-b:v 0 -crf`: 40 at quality 1, 15 at 100.
-  return { codec: "vp9", rate: { quantizer: Math.round(40 - (quality - 1) * (25 / 99)) } };
 }
 
 function audioEncodingConfig(format: AudioExportFormat, quality?: number): AudioEncodingConfig {
@@ -180,123 +178,127 @@ function outputFormat(format: AudioExportFormat): OutputFormat {
   return new WavOutputFormat();
 }
 
+/**
+ * Adds the music tracks to `clips`. Each clip renders offline in its own
+ * music document, from cycle 0 at the clip's start, as the preview plays it.
+ */
 async function timelineAudio(
-  page: Page | undefined,
+  pool: RenderPool,
   composition: Composition,
+  tracks: MediaTrack[],
   clips: AudioClip[],
   isCanceled: () => boolean,
+  loopbackUrl?: LoopbackUrlSource,
 ): Promise<AudioClip[]> {
-  if (!page) return clips;
-  const wavs = await recordMusicAudio(page, composition.durationSeconds, isCanceled);
-  return [...clips, ...wavs.map((wav) => musicClip(wav, composition.durationSeconds))];
+  const music: AudioClip[] = [];
+  for (const track of audibleMusicTracks(tracks)) {
+    throwIfCanceled(isCanceled);
+    const duration = Math.min(track.duration, composition.durationSeconds - track.start);
+    if (duration <= 0) continue;
+    const wav = await pool.withPage(composition, async (page) => {
+      const base = compositionContentUrl(resolveLoopbackUrl(loopbackUrl), composition.id);
+      const url = new URL(`music/${encodeURIComponent(track.asset)}/index.html`, base).href;
+      const response = await page.goto(url, { waitUntil: "load" });
+      if (!response || !response.ok()) {
+        throw new AppError(
+          "export_failed",
+          `music returned ${response?.status() ?? "no response"}`,
+        );
+      }
+      return renderMusicAudio(page, duration, track.volume, mixSampleRate);
+    });
+    music.push(musicClip(wav, track.start, duration));
+  }
+  return [...clips, ...music];
 }
 
-const frameTimeoutMs = 30_000;
-
 /**
- * Chromium's screencast emits a frame whenever the compositor presents one.
- * Seeking and then waiting for the next emitted frame captures exactly what
- * the preview painted, including WebGPU canvases that screenshots can miss.
+ * Takes frames captured out of order and writes them in order, one at a time.
+ * `room` holds a capture back while its frame is `window` or more ahead of
+ * the writer, which bounds the frames held in memory. After `fail`, or a
+ * failed write, `room` throws, so no capture waits on a frame that will never
+ * come.
  */
-function screencastFrames(session: CDPSession) {
-  let latest: Buffer | undefined;
-  let sequence = 0;
-  let stopped = false;
-  const waiters = new Set<{
-    afterSequence: number;
-    resolve: (frame: Buffer) => void;
-    reject: (error: Error) => void;
-  }>();
-  const onFrame = (event: { data: string; sessionId: number }) => {
-    const encoded = Buffer.from(event.data, "base64");
-    // ACK immediately. Chromium will not continue the screencast stream
-    // while an earlier frame remains unacknowledged.
-    void session
-      .send("Page.screencastFrameAck", { sessionId: event.sessionId })
-      .catch(() => undefined);
-    // A fresh WebGPU page can emit an empty screencast event before its
-    // first compositor frame. Skip anything that is not a PNG.
-    if (encoded.length < 8 || encoded[0] !== 0x89 || encoded[1] !== 0x50) return;
-    sequence += 1;
-    latest = encoded;
-    for (const waiter of waiters) {
-      if (sequence <= waiter.afterSequence) continue;
-      waiters.delete(waiter);
-      waiter.resolve(encoded);
+export function orderedFrames<T>(
+  write: (frame: number, image: T) => Promise<void>,
+  window: number,
+) {
+  const pending = new Map<number, T>();
+  let next = 0;
+  let tail = Promise.resolve();
+  let failure: { error: Error } | undefined;
+  let progress = Promise.withResolvers<void>();
+  const wake = () => {
+    progress.resolve();
+    progress = Promise.withResolvers<void>();
+  };
+  const fail = (error: Error) => {
+    failure ??= { error };
+    wake();
+  };
+  const drain = async () => {
+    while (pending.has(next)) {
+      // SAFETY: `has` just found the frame.
+      const image = pending.get(next) as T;
+      pending.delete(next);
+      await write(next, image);
+      next += 1;
+      wake();
     }
   };
-  session.on("Page.screencastFrame", onFrame);
   return {
-    get sequence() {
-      return sequence;
-    },
-    after(afterSequence: number): Promise<Buffer> {
-      if (latest !== undefined && sequence > afterSequence) return Promise.resolve(latest);
-      if (stopped) {
-        return Promise.reject(new AppError("encode_failed", "preview compositor stopped"));
+    async room(frame: number): Promise<void> {
+      for (;;) {
+        if (failure) throw failure.error;
+        if (frame - next < window) return;
+        await progress.promise;
       }
-      // Seeks force a new frame, so a missing one means the page is stuck.
-      // Fail the export instead of waiting forever.
-      return new Promise<Buffer>((resolve, reject) => {
-        const timer = setTimeout(() => {
-          waiters.delete(waiter);
-          reject(new AppError("encode_failed", "preview stopped presenting frames"));
-        }, frameTimeoutMs);
-        const waiter = {
-          afterSequence,
-          resolve(frame: Buffer) {
-            clearTimeout(timer);
-            resolve(frame);
-          },
-          reject(error: Error) {
-            clearTimeout(timer);
-            reject(error);
-          },
-        };
-        waiters.add(waiter);
-      });
     },
-    stop(error: Error) {
-      stopped = true;
-      session.off("Page.screencastFrame", onFrame);
-      for (const waiter of waiters) waiter.reject(error);
-      waiters.clear();
+    put(frame: number, image: T): void {
+      pending.set(frame, image);
+      tail = tail.then(drain);
+      tail.catch((error) => fail(error instanceof Error ? error : new Error(String(error))));
+    },
+    fail,
+    /** Settles once every frame put so far is written. */
+    async finish(): Promise<void> {
+      await tail;
+      if (failure) throw failure.error;
     },
   };
 }
 
 export type VideoWriter = {
-  addFrame(frame: number, image: RgbaImage): Promise<void>;
+  /** Adds the next frame, as a {@link FrameConverter} made it, and frees it. */
+  addFrame(frame: number, image: Frame): Promise<void>;
   finish(): Promise<void>;
   cancel(): Promise<void>;
 };
 
 /**
- * Opens an MP4 (H.264/AAC) or WebM (VP9/Opus) file and accepts RGBA frames in
+ * Opens an MP4 (H.264/AAC) or WebM (VP9/Opus) file and accepts frames in
  * order. The optional mix is fed alongside the frames so the muxer can
  * interleave both tracks without buffering either one.
  */
 export async function openVideoWriter(
   outputPath: string,
   format: "mp4" | "webm",
-  composition: Pick<Composition, "fps" | "durationSeconds">,
-  quality?: number,
+  composition: Pick<Composition, "width" | "height" | "fps" | "durationSeconds">,
+  quality = 80,
   pcm?: Pcm,
 ): Promise<VideoWriter> {
+  const encoder = await openFrameEncoder(
+    format,
+    quality,
+    composition.width,
+    composition.height,
+    composition.fps,
+  );
   const output = new Output({
     format: outputFormat(format),
     target: new FilePathTarget(outputPath),
   });
-  const encoding = videoEncoding(format, quality);
-  const video = new VideoSampleSource({
-    codec: encoding.codec,
-    quality: new Quality(encoding.rate),
-    // Hardware encoders reject small frames and differ per machine.
-    hardwareAcceleration: "prefer-software",
-    // Screencast frames can arrive at a different size than the viewport;
-    // scale them to the composition like the old `-vf scale` did.
-    sizeChangeBehavior: "fill",
-  });
+  const video = new EncodedVideoPacketSource(format === "mp4" ? "avc" : "vp9");
   output.addVideoTrack(video, {
     frameRate: composition.fps,
     maximumPacketCount: frameCount(composition.durationSeconds, composition.fps),
@@ -311,27 +313,52 @@ export async function openVideoWriter(
     feedAudio = audioFeeder(audio, pcm);
   }
   await output.start();
+  let described = false;
+  const addPackets = async (packets: EncodedFrame[]) => {
+    for (const packet of packets) {
+      const encoded = new EncodedPacket(
+        packet.data,
+        packet.key ? "key" : "delta",
+        packet.frame / composition.fps,
+        1 / composition.fps,
+      );
+      await video.add(
+        encoded,
+        described
+          ? undefined
+          : {
+              decoderConfig: {
+                codec: encoder.codec(),
+                codedWidth: composition.width,
+                codedHeight: composition.height,
+                colorSpace: {
+                  primaries: "bt709",
+                  transfer: "bt709",
+                  matrix: "bt709",
+                  fullRange: false,
+                },
+              },
+            },
+      );
+      described = true;
+    }
+  };
   return {
     async addFrame(frame, image) {
-      const sample = new VideoSample(image.data, {
-        format: "RGBA",
-        codedWidth: image.width,
-        codedHeight: image.height,
-        timestamp: frame / composition.fps,
-        duration: 1 / composition.fps,
-      });
-      try {
-        await video.add(sample);
-      } finally {
-        sample.close();
-      }
+      await addPackets(await encoder.encode(image));
       await feedAudio?.((frame + 1) / composition.fps);
     },
     async finish() {
-      await feedAudio?.(Infinity);
-      await output.finalize();
+      try {
+        await addPackets(await encoder.flush());
+        await feedAudio?.(Infinity);
+        await output.finalize();
+      } finally {
+        encoder.close();
+      }
     },
     async cancel() {
+      encoder.close();
       await output.cancel().catch(() => undefined);
     },
   };
@@ -347,83 +374,100 @@ export async function captureVideo(
   isCanceled: () => boolean = () => false,
   setEncodingPhase: () => void = () => undefined,
   loopbackUrl?: LoopbackUrlSource,
+  onProgress: CaptureProgress = () => undefined,
+  workers = farmWorkers(),
 ): Promise<void> {
   if (job.format !== "mp4" && job.format !== "webm") {
     throw new AppError("invalid_export", `${job.format} is not a video export`);
   }
   const format = job.format;
   const assetsDir = path.join(store.compositionDir(composition.id), "assets");
-  const hasMusic = audibleMusicTracks(tracks).length > 0;
   const hasVisualTracks = tracks.some(
     (track) => track.kind === "block" || track.kind === "image" || track.kind === "video",
   );
   const totalFrames = frameCount(composition.durationSeconds, composition.fps);
 
-  await withPage(
+  throwIfCanceled(isCanceled);
+  // The music renders in the shared browser while the farm's browsers start.
+  // The writer opens once the mix is ready; frames wait for it.
+  const writerReady = timelineAudio(
     pool,
     composition,
-    async (page) => {
-      throwIfCanceled(isCanceled);
-      const clips = await timelineAudio(
-        hasMusic ? page : undefined,
-        composition,
-        assetClips(assetsDir, audibleAssetTracks(tracks)),
-        isCanceled,
+    tracks,
+    assetClips(assetsDir, audibleAssetTracks(tracks)),
+    isCanceled,
+    loopbackUrl,
+  )
+    .then((clips) =>
+      clips.length > 0 ? mixTimeline(composition.durationSeconds, clips, isCanceled) : undefined,
+    )
+    .then((pcm) => openVideoWriter(outputPath, format, composition, job.quality, pcm));
+  writerReady.catch(() => undefined);
+  const url = compositionRenderUrl(resolveLoopbackUrl(loopbackUrl), composition.id);
+  try {
+    onProgress(0, totalFrames);
+    if (hasVisualTracks) {
+      // A farm page loads every video once, so the proxies come first.
+      await prepareSeekProxies(store.root, assetsDir);
+      const frames = orderedFrames<Frame>(async (frame, image) => {
+        throwIfCanceled(isCanceled);
+        await (await writerReady).addFrame(frame, image);
+        onProgress(frame + 1, totalFrames);
+      }, workers * 4);
+      let claimed = 0;
+      const results = await Promise.allSettled(
+        Array.from({ length: Math.min(workers, totalFrames) }, async () => {
+          const page = await openFarmPage(composition, url);
+          const converter = await openFrameConverter();
+          try {
+            // Each page takes the next frame nobody has yet, so a slow page
+            // never holds the others to its pace.
+            for (let frame = claimed++; frame < totalFrames; frame = claimed++) {
+              throwIfCanceled(isCanceled);
+              await frames.room(frame);
+              frames.put(frame, await converter.convert(await page.capture(frame)));
+            }
+          } finally {
+            converter.close();
+            await page.close();
+          }
+        }).map((work) =>
+          work.catch((error) => {
+            frames.fail(error instanceof Error ? error : new Error(String(error)));
+            throw error;
+          }),
+        ),
       );
-      const pcm =
-        clips.length > 0
-          ? await mixTimeline(composition.durationSeconds, clips, isCanceled)
-          : undefined;
-      throwIfCanceled(isCanceled);
-
-      const writer = await openVideoWriter(outputPath, format, composition, job.quality, pcm);
-      const session = await page.context().newCDPSession(page);
-      const screencast = screencastFrames(session);
-      let screencastStarted = false;
+      const failed = results.find((result) => result.status === "rejected");
+      if (failed) throw failed.reason;
+      await frames.finish();
+    } else {
+      // Nothing on the timeline moves: the background is every frame.
+      const page = await openFarmPage(composition, url);
+      const jpeg = await page.capture(0).finally(() => page.close());
+      const converter = await openFrameConverter();
+      const writer = await writerReady;
       try {
-        await seekInjectedRuntime(page, 0, 0);
-        await waitForPaint(page);
-        let image = await screenshotRgba(page, composition);
-        if (hasVisualTracks) {
-          await session.send("Page.startScreencast", { format: "png", everyNthFrame: 1 });
-          screencastStarted = true;
-          // Starting a screencast emits the frame already on screen (frame 0).
-          // Consume it first: if it arrived after frame 1's seek, it would be
-          // taken as frame 1 and shift the whole video one frame late.
-          let settle: ReturnType<typeof setTimeout> | undefined;
-          await Promise.race([
-            screencast.after(0),
-            new Promise((resolve) => {
-              settle = setTimeout(resolve, 2000);
-            }),
-          ]).finally(() => clearTimeout(settle));
-        }
+        const image = await converter.convert(jpeg);
         for (let frame = 0; frame < totalFrames; frame += 1) {
           throwIfCanceled(isCanceled);
-          if (frame > 0 && hasVisualTracks) {
-            const beforeSeek = screencast.sequence;
-            await seekInjectedRuntime(page, timeFromFrame(frame, composition.fps), frame, true);
-            image = await decodePngOffThread(await screencast.after(beforeSeek));
-          }
-          throwIfCanceled(isCanceled);
-          await writer.addFrame(frame, image);
+          const copy = image.clone();
+          if (!copy) throw new AppError("encode_failed", "could not copy the frame");
+          await writer.addFrame(frame, copy);
+          onProgress(frame + 1, totalFrames);
         }
-        throwIfCanceled(isCanceled);
-        setEncodingPhase();
-        screencast.stop(new AppError("encode_failed", "preview compositor stopped"));
-        if (screencastStarted) await session.send("Page.stopScreencast");
-        await writer.finish();
-      } catch (error) {
-        screencast.stop(error instanceof Error ? error : new Error(String(error)));
-        if (screencastStarted) {
-          await session.send("Page.stopScreencast").catch(() => undefined);
-        }
-        await writer.cancel();
-        throw error;
+        image.free();
+      } finally {
+        converter.close();
       }
-    },
-    loopbackUrl,
-  );
+    }
+    throwIfCanceled(isCanceled);
+    setEncodingPhase();
+    await (await writerReady).finish();
+  } catch (error) {
+    await (await writerReady.catch(() => undefined))?.cancel();
+    throw error;
+  }
 }
 
 export async function captureAudio(
@@ -450,15 +494,14 @@ export async function captureAudio(
     );
   }
   const assetsDir = path.join(store.compositionDir(composition.id), "assets");
-  let clips = assetClips(assetsDir, audible);
-  if (hasMusic) {
-    clips = await withPage(
-      pool,
-      composition,
-      (page) => timelineAudio(page, composition, clips, isCanceled),
-      loopbackUrl,
-    );
-  }
+  const clips = await timelineAudio(
+    pool,
+    composition,
+    tracks,
+    assetClips(assetsDir, audible),
+    isCanceled,
+    loopbackUrl,
+  );
   throwIfCanceled(isCanceled);
   setEncodingPhase();
   const pcm = await mixTimeline(composition.durationSeconds, clips, isCanceled);
