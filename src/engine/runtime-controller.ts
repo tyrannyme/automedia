@@ -18,6 +18,7 @@ export const controllerSource = String.raw`
     raf: 0,
     postedReady: false,
     seekSerial: Promise.resolve(),
+    latestSeekMessage: null,
   };
 
   function reportScriptError(error) {
@@ -452,6 +453,25 @@ export const controllerSource = String.raw`
     state.raf = window.requestAnimationFrame(animationLoop);
   }
 
+  // Seeks run one at a time, so a slow renderer never draws two times at
+  // once. A seek message waits only while it is the newest request: playback
+  // posts one every animation frame, and a block slower than that would
+  // otherwise work through a backlog of old times long after the clock moved
+  // on. A direct seek() is awaited by its caller, so it always runs.
+  function serialSeek(run) {
+    const task = state.seekSerial.then(run, run);
+    state.seekSerial = task.catch(() => {});
+    return task;
+  }
+
+  function seekToMessage(timeSeconds, frame) {
+    const request = {};
+    state.latestSeekMessage = request;
+    void serialSeek(() =>
+      state.latestSeekMessage === request ? seekNow(timeSeconds, frame) : undefined,
+    );
+  }
+
   // Text measured before its font arrives uses the fallback font's metrics.
   // A block is display: none until its first seek, so it requests its fonts
   // only then. Laying out first makes it request them now.
@@ -478,6 +498,37 @@ export const controllerSource = String.raw`
       window.setTimeout(resolve, 100);
     });
     await new Promise((resolve) => window.setTimeout(resolve, 0));
+  }
+
+  async function seekNow(timeSeconds, frame) {
+    await automedia.ready();
+    pauseDocumentFrames();
+    const metrics = composition();
+    const resolvedTime = clampTime(timeSeconds);
+    const resolvedFrame = frame ?? frameFromTime(resolvedTime);
+    const animations = document.getAnimations({ subtree: true });
+    for (const animation of animations) {
+      animation.pause();
+      animation.currentTime = resolvedTime * 1000;
+    }
+    syncVisualLayers(resolvedTime);
+    await seekMedia(resolvedTime);
+    await syncDocumentFrames(resolvedTime, true);
+    document.documentElement.dataset.automediaTime = String(resolvedTime);
+    const context = {
+      timeSeconds: resolvedTime,
+      timeMs: resolvedTime * 1000,
+      frame: resolvedFrame,
+      fps: metrics.fps,
+      width: metrics.width,
+      height: metrics.height,
+      durationSeconds: metrics.durationSeconds,
+      controls: { ...state.controls },
+    };
+    await waitForFonts();
+    for (const renderer of state.renderers) {
+      await renderer(context);
+    }
   }
 
   const automedia = {
@@ -511,35 +562,9 @@ export const controllerSource = String.raw`
       }
       return state.readyPromise;
     },
-    async seek(timeSeconds, frame) {
-      await automedia.ready();
-      pauseDocumentFrames();
-      const metrics = composition();
-      const resolvedTime = clampTime(timeSeconds);
-      const resolvedFrame = frame ?? frameFromTime(resolvedTime);
-      const animations = document.getAnimations({ subtree: true });
-      for (const animation of animations) {
-        animation.pause();
-        animation.currentTime = resolvedTime * 1000;
-      }
-      syncVisualLayers(resolvedTime);
-      await seekMedia(resolvedTime);
-      await syncDocumentFrames(resolvedTime, true);
-      document.documentElement.dataset.automediaTime = String(resolvedTime);
-      const context = {
-        timeSeconds: resolvedTime,
-        timeMs: resolvedTime * 1000,
-        frame: resolvedFrame,
-        fps: metrics.fps,
-        width: metrics.width,
-        height: metrics.height,
-        durationSeconds: metrics.durationSeconds,
-        controls: { ...state.controls },
-      };
-      await waitForFonts();
-      for (const renderer of state.renderers) {
-        await renderer(context);
-      }
+    seek(timeSeconds, frame) {
+      state.latestSeekMessage = null;
+      return serialSeek(() => seekNow(timeSeconds, frame));
     },
     async setControls(values) {
       const wasPlaying = state.playing;
@@ -618,12 +643,15 @@ export const controllerSource = String.raw`
       return;
     }
     if (message.type === "pause") {
+      const wasPlaying = state.playing;
       const next = wrapPlayhead(rawPlayTime(), composition().durationSeconds);
       state.playing = false;
       stopAnimationLoop();
       pauseDocumentFrames();
-      if (next.playing || next.timeSeconds < composition().durationSeconds) {
-        void automedia.seek(next.timeSeconds, frameFromTime(next.timeSeconds));
+      // Only playback moves the clock. Seeking a paused runtime would redraw
+      // whatever time it last showed, on top of the seek that follows.
+      if (wasPlaying && next.timeSeconds < composition().durationSeconds) {
+        seekToMessage(next.timeSeconds, frameFromTime(next.timeSeconds));
       }
       return;
     }
@@ -631,8 +659,7 @@ export const controllerSource = String.raw`
       state.playing = false;
       stopAnimationLoop();
       pauseDocumentFrames();
-      const task = () => automedia.seek(Number(message.timeSeconds), Number(message.frame));
-      state.seekSerial = state.seekSerial.then(task, task);
+      seekToMessage(Number(message.timeSeconds), Number(message.frame));
       return;
     }
     if (message.type === "controls") {

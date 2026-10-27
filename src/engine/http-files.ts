@@ -11,6 +11,7 @@ const contentTypes = {
   ".js": "text/javascript; charset=utf-8",
   ".mjs": "text/javascript; charset=utf-8",
   ".wgsl": "text/plain; charset=utf-8",
+  ".txt": "text/plain; charset=utf-8",
   ".json": "application/json; charset=utf-8",
   ".png": "image/png",
   ".jpg": "image/jpeg",
@@ -50,6 +51,8 @@ export function sendJson(response: http.ServerResponse, status: number, body: Js
   response.end(JSON.stringify(body));
 }
 
+const openRangeBytes = 4 * 1024 * 1024;
+
 export async function sendFile(
   request: http.IncomingMessage,
   response: http.ServerResponse,
@@ -71,8 +74,15 @@ export async function sendFile(
     }
     const suffix = match[1] === "";
     const start = suffix ? Math.max(0, info.size - Number(match[2])) : Number(match[1]);
-    const end =
-      suffix || match[2] === "" ? info.size - 1 : Math.min(Number(match[2]), info.size - 1);
+    // An open-ended range gets one chunk, not the rest of the file. A media
+    // element streams a big file over one connection for as long as it is
+    // open, and Chromium allows six per host: a page with more videos than
+    // that would wait on the others. The browser asks again for more.
+    const end = suffix
+      ? info.size - 1
+      : match[2] === ""
+        ? Math.min(start + openRangeBytes - 1, info.size - 1)
+        : Math.min(Number(match[2]), info.size - 1);
     if (start > end || start >= info.size) {
       rejectRange();
       return;

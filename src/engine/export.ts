@@ -34,6 +34,9 @@ export type ExportJob = {
   phase: ExportPhase;
   quality?: number;
   timeSeconds?: number;
+  /** While capturing GIF, WebP, MP4, or WebM: frames captured so far, of `frames`. */
+  frame?: number;
+  frames?: number;
   contentUrl?: string;
   /** The file in the composition's exports/. */
   outputPath?: string;
@@ -41,6 +44,9 @@ export type ExportJob = {
   path?: string;
   error?: { code: string; message: string };
 };
+
+/** Capture progress changes every frame; listeners hear of it this often at most. */
+const progressIntervalMs = 250;
 
 /** Finished jobs kept for get_export once the engine has run for a long time. */
 const keptJobs = 500;
@@ -229,6 +235,7 @@ export class ExportQueue {
           isCanceled,
           () => this.setPhase(job, "encoding"),
           this.loopbackUrl,
+          this.progress(job),
         );
       } else if (isAudioExportFormat(job.format)) {
         await captureAudio(
@@ -253,6 +260,7 @@ export class ExportQueue {
           isCanceled,
           () => this.setPhase(job, "encoding"),
           this.loopbackUrl,
+          this.progress(job),
         );
       }
 
@@ -291,6 +299,21 @@ export class ExportQueue {
         await removeFile(tempPath);
       }
     }
+  }
+
+  /** Records frames captured on the job, which get_export reports. */
+  private progress(job: ExportJob): (frame: number, frames: number) => void {
+    let notifiedAt = 0;
+    return (frame, frames) => {
+      if (this.canceled.has(job.id)) return;
+      job.frame = frame;
+      job.frames = frames;
+      const now = Date.now();
+      if (frame === frames || now - notifiedAt >= progressIntervalMs) {
+        notifiedAt = now;
+        this.onChange(job);
+      }
+    };
   }
 
   private setPhase(job: ExportJob, phase: ExportPhase): void {

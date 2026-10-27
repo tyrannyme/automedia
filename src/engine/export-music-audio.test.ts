@@ -1,16 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { encodeWav, musicAudioTapSource, pcmIsAudible } from "./export-music-audio.ts";
+import { encodeWav, musicRenderSource } from "./export-music-audio.ts";
 
 describe("music export audio", () => {
-  it("installs a destination tap before Strudel can create an AudioContext", () => {
-    expect(musicAudioTapSource).toContain("AudioNode.prototype.connect");
-    expect(musicAudioTapSource).toContain("createScriptProcessor");
-    expect(musicAudioTapSource).toContain("globalThis.__automediaMusicTap");
-    expect(musicAudioTapSource).toContain("wavBase64");
-    expect(musicAudioTapSource).toContain("OfflineAudioContext");
-    expect(musicAudioTapSource.indexOf("taps.set(ctx, tap)")).toBeLessThan(
-      musicAudioTapSource.indexOf("processor.connect(silent)"),
-    );
+  it("renders offline a cycle at a time", () => {
+    const source = musicRenderSource(4, 0.5, 48_000);
+    expect(source).toContain("new OfflineAudioContext(2");
+    expect(source).toContain("authored(0.5)");
+    expect(source).toContain("context.suspend(cycle / cps)");
+    expect(source).toContain("queryArc(cycle");
   });
 
   it("encodes stereo PCM as a readable WAV", () => {
@@ -25,24 +22,5 @@ describe("music export audio", () => {
     expect(wav.readInt16LE(46)).toBe(0);
     expect(wav.readInt16LE(48)).toBe(Math.round(0.5 * 32767));
     expect(wav.readInt16LE(50)).toBe(Math.round(-0.25 * 32767));
-  });
-
-  it("treats near-silent captures as inaudible", () => {
-    expect(
-      pcmIsAudible({
-        sampleRate: 48_000,
-        peak: 0,
-        samples: 8,
-        wavBase64: "",
-      }),
-    ).toBe(false);
-    expect(
-      pcmIsAudible({
-        sampleRate: 48_000,
-        peak: 0.2,
-        samples: 8,
-        wavBase64: "UklGRg==",
-      }),
-    ).toBe(true);
   });
 });

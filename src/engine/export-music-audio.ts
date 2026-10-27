@@ -1,147 +1,98 @@
 import * as v from "valibot";
-import { AppError, throwIfCanceled } from "@shared/errors.ts";
+import { AppError } from "@shared/errors.ts";
 import type { Page } from "playwright";
-import { seekInjectedRuntime, waitForPaint } from "./page-runtime.ts";
 
-const audiblePeak = 1e-4;
-
-export const musicAudioTapSource = `(() => {
-  if (globalThis.__automediaMusicTap) return;
-  const taps = new WeakMap();
-  const contexts = new Set();
-  const chunks = [];
-  let recording = false;
-  let sampleRate = 48000;
-  let peak = 0;
-
-  function ensureTap(ctx) {
-    let tap = taps.get(ctx);
-    if (tap) return tap;
-    if (ctx.constructor && ctx.constructor.name === "OfflineAudioContext") return null;
-    const processor = ctx.createScriptProcessor(4096, 2, 2);
-    const silent = ctx.createGain();
-    silent.gain.value = 0;
-    tap = { processor, silent };
-    taps.set(ctx, tap);
-    contexts.add(ctx);
-    processor.connect(silent);
-    silent.connect(ctx.destination);
-    processor.onaudioprocess = (event) => {
-      if (!recording) return;
-      sampleRate = ctx.sampleRate;
-      const frames = event.inputBuffer.length;
-      const sourceLeft = event.inputBuffer.getChannelData(0);
-      const sourceRight =
-        event.inputBuffer.numberOfChannels > 1 ? event.inputBuffer.getChannelData(1) : sourceLeft;
-      const left = new Int16Array(frames);
-      const right = new Int16Array(frames);
-      for (let index = 0; index < frames; index += 1) {
-        const a = Math.max(-1, Math.min(1, sourceLeft[index]));
-        const b = Math.max(-1, Math.min(1, sourceRight[index]));
-        peak = Math.max(peak, Math.abs(a), Math.abs(b));
-        left[index] = Math.round(a * 32767);
-        right[index] = Math.round(b * 32767);
-      }
-      chunks.push([left, right]);
-    };
-    return tap;
+/**
+ * Renders one music clip offline in its own document, the way Strudel's
+ * `renderPatternAudio` does, but a cycle at a time: every note of a cycle is
+ * scheduled on an OfflineAudioContext suspended where that cycle starts, so
+ * the graph only ever holds the notes that are sounding. A minute of music
+ * renders in seconds instead of playing for a minute.
+ *
+ * The pattern gets the clip's volume as its gain, like the live runtime, and
+ * plays from cycle 0 at the clip's start. The page returns 16-bit WAV bytes.
+ */
+export function musicRenderSource(durationSeconds: number, gain: number, sampleRate: number) {
+  return `(async () => {
+  const imports = JSON.parse(document.querySelector("script[type=importmap]").textContent).imports;
+  const strudel = await import(new URL(imports["@strudel/web"], location.href).href);
+  const authored = (await import(new URL("pattern.js", location.href).href)).default;
+  const pattern = typeof authored === "function" ? authored(${gain}) : authored;
+  const cps = strudel.getCps?.() ?? 0.5;
+  const seconds = ${durationSeconds};
+  const rate = ${sampleRate};
+  const cycles = seconds * cps;
+  const context = new OfflineAudioContext(2, Math.max(1, Math.ceil(seconds * rate)), rate);
+  strudel.setAudioContext(context);
+  // Superdough builds its output for the current context on first use.
+  strudel.setSuperdoughAudioController(null);
+  await strudel.initAudio({ maxPolyphony: strudel.DEFAULT_MAX_POLYPHONY, multiChannelOrbits: false });
+  let rendering = null;
+  for (let cycle = 0; cycle < cycles; cycle += 1) {
+    const haps = pattern
+      .queryArc(cycle, Math.min(cycle + 1, cycles), { _cps: cps })
+      .filter((hap) => hap.hasOnset())
+      .sort((a, b) => a.whole.begin.valueOf() - b.whole.begin.valueOf());
+    for (const hap of haps) {
+      hap.ensureObjectValue();
+      const at = hap.whole.begin.valueOf() / cps;
+      await strudel.superdough(hap.value, at, hap.duration / cps, cps, at);
+    }
+    // Rendering stops where this cycle starts, so the next cycle's notes are
+    // scheduled before any of them plays.
+    const paused = cycle + 1 < cycles ? context.suspend(cycle / cps) : null;
+    if (rendering === null) rendering = context.startRendering();
+    else await context.resume();
+    if (paused) await paused;
   }
-
-  const origConnect = AudioNode.prototype.connect;
-  AudioNode.prototype.connect = function (dest) {
-    const result = origConnect.apply(this, arguments);
-    try {
-      const tap = this.context ? ensureTap(this.context) : null;
-      if (
-        tap &&
-        dest === this.context.destination &&
-        this !== tap.processor &&
-        this !== tap.silent
-      ) {
-        origConnect.call(this, tap.processor);
-      }
-    } catch {
-      /* keep playback working if the tap cannot attach */
-    }
-    return result;
+  const buffer = await rendering;
+  const left = buffer.getChannelData(0);
+  const right = buffer.getChannelData(1);
+  const bytes = new Uint8Array(44 + left.length * 4);
+  const view = new DataView(bytes.buffer);
+  const text = (offset, value) => {
+    for (let index = 0; index < value.length; index += 1) bytes[offset + index] = value.charCodeAt(index);
   };
-
-  function encodeWav(left, right) {
-    const length = left.length;
-    const dataSize = length * 4;
-    const bytes = new Uint8Array(44 + dataSize);
-    const view = new DataView(bytes.buffer);
-    function writeString(offset, text) {
-      for (let index = 0; index < text.length; index += 1) {
-        bytes[offset + index] = text.charCodeAt(index);
-      }
-    }
-    writeString(0, "RIFF");
-    view.setUint32(4, 36 + dataSize, true);
-    writeString(8, "WAVE");
-    writeString(12, "fmt ");
-    view.setUint32(16, 16, true);
-    view.setUint16(20, 1, true);
-    view.setUint16(22, 2, true);
-    view.setUint32(24, sampleRate, true);
-    view.setUint32(28, sampleRate * 4, true);
-    view.setUint16(32, 4, true);
-    view.setUint16(34, 16, true);
-    writeString(36, "data");
-    view.setUint32(40, dataSize, true);
-    let offset = 44;
-    for (let index = 0; index < length; index += 1) {
-      view.setInt16(offset, left[index], true);
-      view.setInt16(offset + 2, right[index], true);
-      offset += 4;
-    }
-    let binary = "";
-    const step = 0x8000;
-    for (let index = 0; index < bytes.length; index += step) {
-      binary += String.fromCharCode.apply(null, bytes.subarray(index, index + step));
-    }
-    return btoa(binary);
+  text(0, "RIFF");
+  view.setUint32(4, 36 + left.length * 4, true);
+  text(8, "WAVE");
+  text(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 2, true);
+  view.setUint32(24, rate, true);
+  view.setUint32(28, rate * 4, true);
+  view.setUint16(32, 4, true);
+  view.setUint16(34, 16, true);
+  text(36, "data");
+  view.setUint32(40, left.length * 4, true);
+  for (let index = 0; index < left.length; index += 1) {
+    view.setInt16(44 + index * 4, Math.round(Math.max(-1, Math.min(1, left[index])) * 32767), true);
+    view.setInt16(46 + index * 4, Math.round(Math.max(-1, Math.min(1, right[index])) * 32767), true);
   }
+  let binary = "";
+  for (let index = 0; index < bytes.length; index += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
+  }
+  return btoa(binary);
+})()`;
+}
 
-  globalThis.__automediaMusicTap = {
-    arm() {
-      chunks.length = 0;
-      peak = 0;
-      recording = true;
-      for (const ctx of contexts) {
-        void ctx.resume();
-      }
-    },
-    stop() {
-      recording = false;
-      const length = chunks.reduce((sum, pair) => sum + pair[0].length, 0);
-      const left = new Int16Array(length);
-      const right = new Int16Array(length);
-      let offset = 0;
-      for (const [channelLeft, channelRight] of chunks) {
-        left.set(channelLeft, offset);
-        right.set(channelRight, offset);
-        offset += channelLeft.length;
-      }
-      chunks.length = 0;
-      return {
-        sampleRate,
-        peak,
-        samples: length,
-        wavBase64: length > 0 ? encodeWav(left, right) : "",
-      };
-    },
-  };
-})();`;
-
-const capturedAudioSchema = v.object({
-  sampleRate: v.number(),
-  peak: v.number(),
-  samples: v.number(),
-  wavBase64: v.string(),
-});
-
-export type CapturedAudio = v.InferOutput<typeof capturedAudioSchema>;
+/** Renders the music document open in `page` to WAV bytes. */
+export async function renderMusicAudio(
+  page: Page,
+  durationSeconds: number,
+  volume: number,
+  sampleRate: number,
+): Promise<Uint8Array> {
+  const gain = Math.max(0, Math.min(1, volume));
+  const wav = v.parse(
+    v.string(),
+    await page.evaluate(musicRenderSource(durationSeconds, gain, sampleRate)),
+  );
+  if (wav.length === 0) throw new AppError("capture_failed", "music audio did not render");
+  return Buffer.from(wav, "base64");
+}
 
 export function encodeWav(channelData: Array<ArrayLike<number>>, sampleRate: number): Buffer {
   const channels = Math.max(1, channelData.length);
@@ -172,60 +123,4 @@ export function encodeWav(channelData: Array<ArrayLike<number>>, sampleRate: num
     }
   }
   return buffer;
-}
-
-export function pcmIsAudible(pcm: CapturedAudio | null | undefined): pcm is CapturedAudio {
-  return Boolean(pcm && pcm.peak >= audiblePeak && pcm.samples > 0 && pcm.wavBase64.length > 0);
-}
-
-async function evaluateInFrames(page: Page, script: string): Promise<unknown[]> {
-  const results: unknown[] = [];
-  for (const frame of page.frames()) {
-    try {
-      results.push(await frame.evaluate(script));
-    } catch {
-      /* detached or not yet instrumented */
-    }
-  }
-  return results;
-}
-
-export async function recordMusicAudio(
-  page: Page,
-  durationSeconds: number,
-  isCanceled: () => boolean = () => false,
-): Promise<Buffer[]> {
-  throwIfCanceled(isCanceled);
-  await seekInjectedRuntime(page, 0, 0);
-  await waitForPaint(page);
-  throwIfCanceled(isCanceled);
-  await evaluateInFrames(page, musicAudioTapSource);
-  await evaluateInFrames(
-    page,
-    "globalThis.__automediaMusicTap && globalThis.__automediaMusicTap.arm()",
-  );
-  await page.evaluate(`window.postMessage({ source: "automedia", type: "play" }, "*")`);
-  const deadline = Date.now() + durationSeconds * 1000 + 250;
-  while (Date.now() < deadline) {
-    throwIfCanceled(isCanceled);
-    await new Promise((resolve) => setTimeout(resolve, 50));
-  }
-  await page.evaluate(`window.postMessage({ source: "automedia", type: "pause" }, "*")`);
-  const recordings = (
-    await evaluateInFrames(
-      page,
-      "globalThis.__automediaMusicTap ? globalThis.__automediaMusicTap.stop() : null",
-    )
-  ).flatMap((value) => (v.is(capturedAudioSchema, value) ? [value] : []));
-  const wavs = recordings.filter(pcmIsAudible).map((pcm) => Buffer.from(pcm.wavBase64, "base64"));
-  if (wavs.length === 0) {
-    const summary = recordings
-      .map((pcm) => `peak=${pcm.peak.toFixed(6)} samples=${pcm.samples}`)
-      .join("; ");
-    throw new AppError(
-      "capture_failed",
-      summary ? `music audio did not render (${summary})` : "music audio did not render",
-    );
-  }
-  return wavs;
 }

@@ -4,8 +4,9 @@ import { AppError } from "@shared/errors.ts";
 import { isCompositorLayerKind, isImageKind, isVideoKind } from "@shared/media.ts";
 import { documentFrameSrc, musicAssetFromPath, musicRuntimeKind } from "@shared/music-paths.ts";
 import type { Composition, MediaDocument, MediaTrack } from "@shared/schemas.ts";
-import { pathExists } from "./fs.ts";
+import { isFile, pathExists, resolveInside } from "./fs.ts";
 import { sendFile } from "./http-files.ts";
+import { readySeekProxy } from "./seek-proxies.ts";
 import { musicRuntimeFile } from "./music-template.ts";
 import { injectRuntime, runtimeAssetRoot } from "./runtime.ts";
 import type { CompositionStore } from "./store.ts";
@@ -60,6 +61,8 @@ export async function serveCompositionContent(
   relativePath: string,
   request: http.IncomingMessage,
   response: http.ServerResponse,
+  /** Exports read `render/`: the same files, with videos swapped for seek proxies. */
+  render = false,
 ): Promise<void> {
   const composition = await store.get(compositionId);
   const decoded = decodeURIComponent(relativePath);
@@ -91,9 +94,8 @@ export async function serveCompositionContent(
     response.end(generated.content);
     return;
   }
-  const file = await store.readFile(compositionId, decoded);
-  const absolute = path.join(store.compositionDir(compositionId), decoded);
   if (decoded.endsWith(".html")) {
+    const file = await store.readFile(compositionId, decoded);
     const html =
       file.encoding === "utf8"
         ? file.content
@@ -106,7 +108,14 @@ export async function serveCompositionContent(
     response.end(injected);
     return;
   }
-  await sendFile(request, response, absolute, {
+  // Media is served straight from disk: a video asks for many ranges, and
+  // reading the whole file for each would stall every other request.
+  const absolute = resolveInside(store.compositionDir(compositionId), decoded);
+  if (!(await isFile(absolute))) {
+    throw new AppError("not_found", `${decoded} does not exist`);
+  }
+  const proxy = render ? await readySeekProxy(store.root, absolute) : undefined;
+  await sendFile(request, response, proxy ?? absolute, {
     "cross-origin-resource-policy": "cross-origin",
   });
 }

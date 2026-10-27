@@ -99,7 +99,7 @@ describe.skipIf(missing.length > 0)("MCP tools agents use for game UI art", () =
     await rm(scratch, { recursive: true, force: true });
   });
 
-  it("imports an image and a font from a filesystem path into assets/", async () => {
+  it("imports an image, a font, and its licence from a filesystem path into assets/", async () => {
     const { compositionId } = await ok<AgentComposition>("create_composition", {});
     const font = path.join(scratch, "Title.woff2");
     await copyFile("src/renderer/fonts/poppins-latin-400-normal.woff2", font);
@@ -119,9 +119,15 @@ describe.skipIf(missing.length > 0)("MCP tools agents use for game UI art", () =
     );
     expect(copied.equals(await readFile(font))).toBe(true);
 
-    const text = path.join(scratch, "notes.txt");
-    await writeFile(text, "not an asset");
-    const rejected = await call<ToolError>("import_asset", { compositionId, path: text });
+    const licence = path.join(scratch, "OFL.txt");
+    await writeFile(licence, "SIL Open Font License");
+    expect(await ok("import_asset", { compositionId, path: licence })).toEqual({
+      asset: "ofl.txt",
+    });
+
+    const page = path.join(scratch, "notes.html");
+    await writeFile(page, "not an asset");
+    const rejected = await call<ToolError>("import_asset", { compositionId, path: page });
     expect(rejected.isError).toBe(true);
     expect(rejected.data.code).toBe("invalid_asset");
   });

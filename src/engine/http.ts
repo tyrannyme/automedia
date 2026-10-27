@@ -150,14 +150,15 @@ export async function startLoopbackServer(options: {
         });
         return;
       }
-      const contentMatch = /^\/compositions\/([^/]+)\/content\/(.*)$/.exec(url.pathname);
+      const contentMatch = /^\/compositions\/([^/]+)\/(content|render)\/(.*)$/.exec(url.pathname);
       if (request.method === "GET" && contentMatch) {
         await serveCompositionContent(
           store,
           contentMatch[1] ?? "",
-          contentMatch[2] ?? "",
+          contentMatch[3] ?? "",
           request,
           response,
+          contentMatch[2] === "render",
         );
         return;
       }

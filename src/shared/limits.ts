@@ -37,6 +37,9 @@ export const imageExtensions = ["gif", "jpeg", "jpg", "png", "svg", "webp"] as c
 
 export const fontExtensions = ["otf", "ttf", "woff", "woff2"] as const;
 
+/** Plain text a composition carries along, such as its fonts' licences. */
+export const textExtensions = ["txt"] as const;
+
 export const exportFormats = ["png", "gif", "webp", "mp4", "webm", "mp3", "wav", "ogg"] as const;
 
 export const loopbackHost = "127.0.0.1";
