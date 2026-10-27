@@ -167,6 +167,21 @@ integration("composition thumbnails", () => {
       (entry) => entry.endsWith(".tmp") || entry.endsWith(".tmp.png"),
     );
     expect(temporaryFiles).toEqual([]);
+
+    // Filmstrip frames come from the same renderer at a given time and height.
+    const [start, end] = await Promise.all([
+      service.frame(composition.id, 0, 36),
+      service.frame(composition.id, 1.96, 36),
+    ]);
+    const first = decodePng(await readFile(start));
+    expect(first).toMatchObject({ width: 64, height: 36 });
+    const red = pixel(Buffer.from(first.data), 64, 32, 18);
+    expect(red[0]).toBeGreaterThan(220);
+    expect(red[1]).toBeLessThan(40);
+    const last = decodePng(await readFile(end));
+    const blue = pixel(Buffer.from(last.data), 64, 32, 18);
+    expect(blue[2]).toBeGreaterThan(200);
+    expect(blue[0]).toBeLessThan(40);
   }, 60_000);
 });
 

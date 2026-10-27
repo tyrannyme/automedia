@@ -5,10 +5,13 @@ import { afterEach, describe, expect, it } from "vitest";
 import { CompositionStore } from "./store.ts";
 import { EventBus } from "./events.ts";
 import {
+  frameHeight,
+  framesPath,
   subscribeThumbnailMutations,
   thumbnailDimensions,
   thumbnailPath,
   ThumbnailService,
+  type FrameCaptureOptions,
   type ThumbnailCapture,
 } from "./thumbnails.ts";
 
@@ -166,5 +169,80 @@ describe("subscribeThumbnailMutations", () => {
     events.emit({ type: "write_file", compositionId: "c1" });
     expect(requested).toEqual(["c1", "c1"]);
     expect(canceled).toEqual(["c1"]);
+  });
+});
+
+describe("ThumbnailService frames", () => {
+  it("clamps the requested height", () => {
+    expect(frameHeight(64)).toBe(64);
+    expect(frameHeight(2)).toBe(16);
+    expect(frameHeight(5000)).toBe(240);
+    expect(frameHeight(Number.NaN)).toBe(64);
+  });
+
+  it("renders frames requested together from one page, then serves them from disk", async () => {
+    const store = await tempStore();
+    const composition = await store.create();
+    const batches: FrameCaptureOptions[] = [];
+    const service = new ThumbnailService(store, {
+      baseUrl: "http://127.0.0.1:1",
+      capture: async () => {},
+      captureFrames: async (options) => {
+        batches.push(options);
+        for (const item of options.frames) await writeFile(item.outputPath, `f${item.frame}`);
+      },
+    });
+    services.push(service);
+
+    const [a, b, again] = await Promise.all([
+      service.frame(composition.id, 0.5, 48),
+      service.frame(composition.id, 1, 48),
+      service.frame(composition.id, 0.51, 48),
+    ]);
+    expect(batches).toHaveLength(1);
+    expect(batches[0]?.height).toBe(48);
+    expect(batches[0]?.frames.map((item) => item.frame)).toEqual([15, 30]);
+    expect(again).toBe(a);
+    expect(await readFile(a, "utf8")).toBe("f15");
+    expect(await readFile(b, "utf8")).toBe("f30");
+
+    expect(await service.frame(composition.id, 0.5, 48)).toBe(a);
+    expect(batches).toHaveLength(1);
+  });
+
+  it("drops the frames of an older revision once the composition changes", async () => {
+    const store = await tempStore();
+    const composition = await store.create();
+    const service = new ThumbnailService(store, {
+      baseUrl: "http://127.0.0.1:1",
+      capture: async () => {},
+      captureFrames: async (options) => {
+        for (const item of options.frames) await writeFile(item.outputPath, "frame");
+      },
+    });
+    services.push(service);
+
+    const old = await service.frame(composition.id, 1, 64);
+    await wait(5);
+    await store.updateSettings({ compositionId: composition.id, name: "Renamed" });
+    const fresh = await service.frame(composition.id, 1, 64);
+    expect(fresh).not.toBe(old);
+    expect(path.dirname(path.dirname(fresh))).toBe(framesPath(store, composition.id));
+    await expect(stat(old)).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("rejects every frame of a batch whose capture fails", async () => {
+    const store = await tempStore();
+    const composition = await store.create();
+    const service = new ThumbnailService(store, {
+      baseUrl: "http://127.0.0.1:1",
+      capture: async () => {},
+      captureFrames: async () => {
+        throw new Error("script threw");
+      },
+    });
+    services.push(service);
+
+    await expect(service.frame(composition.id, 1, 64)).rejects.toThrow("script threw");
   });
 });

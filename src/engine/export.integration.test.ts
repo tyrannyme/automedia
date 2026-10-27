@@ -227,7 +227,8 @@ export default function pattern(gain) {
     const settled = await waitForPhase(job.id, new Set(["canceled", "failed", "completed"]));
     expect(settled.phase).toBe("canceled");
 
-    const outputPath = path.join(store.compositionDir(composition.id), "exports", `${job.id}.mp4`);
+    const outputPath = settled.outputPath ?? "";
+    expect(path.basename(outputPath)).toMatch(/\.mp4$/);
     const tempPath = `${outputPath}.automedia-tmp.mp4`;
     await waitForFilesGone([outputPath, tempPath]);
   }, 90_000);

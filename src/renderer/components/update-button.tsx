@@ -18,9 +18,9 @@ function useUpdateState(): UpdateState {
 
 /** The button's rounded square, traced as a progress ring. */
 function ProgressRing({ progress }: { progress: number }) {
-  const ring = { x: 1, y: 1, width: 34, height: 34, rx: 15, pathLength: 100, strokeWidth: 2 };
+  const ring = { x: 1, y: 1, width: 30, height: 30, rx: 7, pathLength: 100, strokeWidth: 2 };
   return (
-    <svg viewBox="0 0 36 36" fill="none" aria-hidden="true" className="absolute inset-0 size-9">
+    <svg viewBox="0 0 32 32" fill="none" aria-hidden="true" className="absolute inset-0 size-8">
       <rect {...ring} className="stroke-surface" />
       <rect
         {...ring}
@@ -68,12 +68,12 @@ export function UpdateButton({ exporting }: UpdateButtonProps) {
         render={
           <Button
             variant="ghost"
-            size="icon"
+            size="icon-sm"
             data-no-drag=""
             aria-label={title}
             aria-disabled={downloading || waiting}
             className={cn(
-              "relative",
+              "relative text-foreground",
               (downloading || waiting) && "cursor-default",
               downloading && "hover:bg-transparent",
             )}

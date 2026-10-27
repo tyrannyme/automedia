@@ -119,7 +119,10 @@ export function createOperations(context: EngineContext) {
       }),
       async ({ compositionId, holder, ttlSeconds }) => {
         await store.get(compositionId);
-        return store.claim(compositionId, holder, ttlSeconds);
+        const lease = store.claim(compositionId, holder, ttlSeconds);
+        // Claims are presence, not edits: the studio hears them, the activity log does not.
+        events.emit({ type: "claim_composition", compositionId, payload: { holder } });
+        return lease;
       },
     ),
 
@@ -127,6 +130,7 @@ export function createOperations(context: EngineContext) {
       v.object({ compositionId: idSchema, holder: v.pipe(v.string(), v.minLength(1)) }),
       ({ compositionId, holder }) => {
         store.release(compositionId, holder);
+        events.emit({ type: "release_composition", compositionId, payload: { holder } });
         return { ok: true, compositionId };
       },
     ),

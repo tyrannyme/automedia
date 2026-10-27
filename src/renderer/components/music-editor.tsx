@@ -1,18 +1,20 @@
 import { useEffect, useState } from "react";
 import { musicAsset, useStudioStore } from "@/stores/studio.ts";
 import { musicPatternPath } from "@shared/music-paths.ts";
-import { Alert, AlertDescription } from "@/components/ui/alert.tsx";
-import { Button } from "@/components/ui/button.tsx";
-import { PanePath } from "@/components/pane-path.tsx";
-import { Textarea } from "@/components/ui/textarea.tsx";
+import {
+  CodePane,
+  useOtherWriter,
+  type Conflict,
+  type SaveStatus,
+} from "@/components/code-panes.tsx";
 
-type CodedError = Error & { code?: string };
-
-function isConflict(error: CodedError): boolean {
-  return error.code === "revision_conflict";
-}
-
-export function MusicEditor({ onReload }: { onReload: () => void }) {
+export function MusicEditor({
+  onReload,
+  onStatus,
+}: {
+  onReload: () => void;
+  onStatus?: (status: SaveStatus) => void;
+}) {
   const id = useStudioStore((state) => state.compositionId);
   const media = useStudioStore((state) => state.media);
   const selectedTrackId = useStudioStore((state) => state.selectedTrackId);
@@ -23,39 +25,53 @@ export function MusicEditor({ onReload }: { onReload: () => void }) {
   const etag = useStudioStore((state) => state.patternEtag);
   const setPattern = useStudioStore((state) => state.setPattern);
   const markSaved = useStudioStore((state) => state.markPatternSaved);
-  const [conflict, setConflict] = useState(false);
+  const writer = useOtherWriter();
+  const [conflict, setConflict] = useState<Conflict | null>(null);
+  const [savedOnce, setSavedOnce] = useState(false);
 
   useEffect(() => {
-    if (!id || !path || pattern === saved) return;
+    setConflict(null);
+    setSavedOnce(false);
+  }, [path]);
+
+  useEffect(() => {
+    onStatus?.({
+      saving: pattern !== saved && !conflict,
+      conflict: conflict ? "pattern.js" : null,
+      savedOnce,
+    });
+  }, [conflict, onStatus, pattern, saved, savedOnce]);
+
+  useEffect(() => {
+    // A conflict waits for Keep mine or Take theirs.
+    if (!id || !path || pattern === saved || conflict) return;
     const timer = window.setTimeout(() => {
       void window.studio.files
-        .write({
-          compositionId: id,
-          path,
-          encoding: "utf8",
-          content: pattern,
-          expectedEtag: etag,
-        })
+        .write({ compositionId: id, path, encoding: "utf8", content: pattern, expectedEtag: etag })
         .then((result) => {
           markSaved(result.content, result.etag);
-          setConflict(false);
+          setSavedOnce(true);
           onReload();
         })
-        .catch((error: Error) => {
-          // SAFETY: window.studio errors are IpcClientError values carrying a protocol code.
-          if (isConflict(error as CodedError)) setConflict(true);
+        .catch(async () => {
+          // The error's code does not survive the preload bridge, so ask the disk.
+          const disk = await window.studio.files.read(id, path);
+          if (disk.etag === etag) return;
+          setConflict({ theirs: disk.content });
         });
     }, 400);
     return () => window.clearTimeout(timer);
-  }, [etag, id, markSaved, onReload, path, pattern, saved]);
+  }, [conflict, etag, id, markSaved, onReload, path, pattern, saved]);
 
-  const reload = async () => {
+  const takeTheirs = async () => {
     if (!id || !path) return;
+    await navigator.clipboard.writeText(pattern).catch(() => undefined);
     const result = await window.studio.files.read(id, path);
     markSaved(result.content, result.etag);
-    setConflict(false);
+    setConflict(null);
+    onReload();
   };
-  const overwrite = async () => {
+  const keepMine = async () => {
     if (!id || !path) return;
     const latest = await window.studio.files.read(id, path);
     const result = await window.studio.files.write({
@@ -66,48 +82,31 @@ export function MusicEditor({ onReload }: { onReload: () => void }) {
       expectedEtag: latest.etag,
     });
     markSaved(result.content, result.etag);
-    setConflict(false);
+    setConflict(null);
+    setSavedOnce(true);
     onReload();
   };
 
+  if (!path) {
+    return (
+      <p className="px-6 py-8 text-sm text-muted-foreground">
+        Add music on the timeline to edit its Strudel pattern.
+      </p>
+    );
+  }
   return (
-    <section
-      className="flex min-h-0 flex-1 flex-col overflow-hidden bg-canvas-code"
-      aria-label="Music editor"
-      data-canvas="music"
-    >
-      {conflict && (
-        <Alert
-          variant="destructive"
-          className="flex shrink-0 items-center justify-between px-3 py-2"
-        >
-          <AlertDescription>This file changed on disk. Reload or overwrite.</AlertDescription>
-          <span className="flex gap-1">
-            <Button type="button" variant="link" size="xs" onClick={() => void reload()}>
-              Reload
-            </Button>
-            <Button type="button" variant="link" size="xs" onClick={() => void overwrite()}>
-              Overwrite
-            </Button>
-          </span>
-        </Alert>
-      )}
-      {!path && (
-        <p className="px-4 py-6 text-sm text-muted-foreground">
-          Add music on the timeline to edit a Strudel pattern.
-        </p>
-      )}
-      {path && (
-        <div className="group flex min-h-0 flex-1 flex-col gap-1 px-4 py-3">
-          <PanePath path={path} />
-          <Textarea
-            value={pattern}
-            onChange={(event) => setPattern(event.target.value)}
-            spellCheck={false}
-            className="-mx-2 min-h-0 w-auto flex-1 resize-none rounded-sm px-2 py-1 font-mono text-sm leading-[1.45] hover:bg-transparent focus-visible:bg-transparent focus-visible:ring-0"
-          />
-        </div>
-      )}
-    </section>
+    <div className="flex min-h-0 flex-1 flex-col" aria-label="Music editor" data-canvas="music">
+      <CodePane
+        path={path}
+        value={pattern}
+        onChange={setPattern}
+        conflict={conflict}
+        writer={writer}
+        onKeepMine={() => void keepMine()}
+        onTakeTheirs={() => void takeTheirs()}
+        autoFocus
+        className="flex-1"
+      />
+    </div>
   );
 }

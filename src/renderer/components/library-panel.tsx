@@ -1,13 +1,164 @@
 import { useEffect, useState } from "react";
-import { FolderIcon, FolderPlusIcon, PlusIcon, SpeakerWaveIcon } from "@heroicons/react/24/outline";
+import { ArrowDownTrayIcon, PlusIcon, SpeakerWaveIcon } from "@heroicons/react/24/outline";
 import type { Composition, MediaTrack } from "@shared/schemas.ts";
+import { PanelSection } from "@/components/inspector-parts.tsx";
 import { Button } from "@/components/ui/button.tsx";
-import { ScrollArea } from "@/components/ui/scroll-area.tsx";
 import { addAssetToTimeline } from "@/lib/add-asset.ts";
-import { isImageLibraryAsset, isVideoLibraryAsset } from "@/lib/library.ts";
+import {
+  formatMediaLength,
+  isImageLibraryAsset,
+  isVideoLibraryAsset,
+  libraryAssetKind,
+  libraryAssets,
+} from "@/lib/library.ts";
 import { friendlyMediaError, LIBRARY_ASSET_MIME } from "@/lib/library-drag.ts";
 import { compositionAssetUrl } from "@/lib/loopback.ts";
-import { cn } from "@/lib/utils.ts";
+
+/** Reads a media file's length from its metadata, for the tile's DM Mono chip. */
+function useMediaLength(src: string, kind: "video" | "image" | "audio"): number | null {
+  const [length, setLength] = useState<number | null>(null);
+  useEffect(() => {
+    setLength(null);
+    if (kind === "image") return;
+    const element = document.createElement(kind === "video" ? "video" : "audio");
+    element.preload = "metadata";
+    element.muted = true;
+    const done = () => {
+      if (Number.isFinite(element.duration) && element.duration > 0) setLength(element.duration);
+    };
+    element.addEventListener("loadedmetadata", done);
+    element.src = src;
+    return () => {
+      element.removeEventListener("loadedmetadata", done);
+      element.removeAttribute("src");
+      element.load();
+    };
+  }, [kind, src]);
+  return length;
+}
+
+function MediaTile({
+  compositionId,
+  asset,
+  onAdd,
+}: {
+  compositionId: string;
+  asset: string;
+  onAdd: (asset: string) => void;
+}) {
+  const kind = libraryAssetKind(asset);
+  const length = useMediaLength(compositionAssetUrl(compositionId, asset), kind);
+  return (
+    <li className="min-w-0">
+      <button
+        type="button"
+        draggable
+        className="group/tile block w-full cursor-grab rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing"
+        aria-label={`${asset}. Drag onto the timeline, or double-click to add at the playhead`}
+        title={asset}
+        onDoubleClick={() => onAdd(asset)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") onAdd(asset);
+        }}
+        onDragStart={(event) => beginAssetDrag(event, asset)}
+      >
+        <span className="relative block aspect-video w-full overflow-hidden rounded-lg bg-raised outline -outline-offset-1 outline-foreground/10 transition-opacity group-active/tile:opacity-50">
+          <AssetThumb compositionId={compositionId} asset={asset} />
+          {length !== null && (
+            <span className="absolute right-[5px] bottom-[5px] rounded-[5px] bg-black/60 px-[5px] py-0.5 font-mono text-[11px] leading-[1.2] tracking-normal text-[#f5f5f5]">
+              {formatMediaLength(length)}
+            </span>
+          )}
+        </span>
+        <span className="mt-1.5 block truncate text-[12px] text-muted-foreground group-hover/tile:text-foreground">
+          {asset}
+        </span>
+      </button>
+    </li>
+  );
+}
+
+/**
+ * The project's media bin in the panel: its own pictures and sounds, dragged onto the
+ * timeline or double-clicked in at the playhead. Empty, it is one quiet line.
+ */
+export function MediaSection({
+  composition,
+  files,
+  onTrack,
+}: {
+  composition: Composition;
+  files: string[];
+  onTrack: (track: MediaTrack) => Promise<void>;
+}) {
+  const [imported, setImported] = useState<string[]>([]);
+  const [addError, setAddError] = useState<string | null>(null);
+  useEffect(() => setImported([]), [composition.id]);
+  const assets = [...new Set([...libraryAssets(files), ...imported])];
+
+  const importAsset = async () => {
+    const result = await window.studio.assets.import(composition.id);
+    if (result) setImported((current) => [...current, result.asset]);
+  };
+  const add = async (asset: string) => {
+    setAddError(null);
+    try {
+      await addAssetToTimeline(composition.id, asset, onTrack);
+    } catch (error) {
+      setAddError(friendlyMediaError(error));
+    }
+  };
+
+  return (
+    <PanelSection
+      title="Media"
+      action={
+        assets.length > 0 ? (
+          <Button
+            variant="ghost"
+            size="xs"
+            className="-mr-2 text-[13px] font-normal text-muted-foreground"
+            onClick={() => void importAsset()}
+          >
+            <PlusIcon />
+            Import
+          </Button>
+        ) : (
+          <span className="font-mono text-[12px] font-normal tracking-normal text-dim">0</span>
+        )
+      }
+    >
+      {assets.length === 0 ? (
+        <p className="flex gap-3 text-[13px] leading-[1.45] text-dim">
+          <ArrowDownTrayIcon className="mt-px size-4 w-[22px] shrink-0" />
+          <span>
+            No media yet.{" "}
+            <button
+              type="button"
+              className="rounded-sm text-foreground outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+              onClick={() => void importAsset()}
+            >
+              Import
+            </button>{" "}
+            audio, video, or images to use them here.
+          </span>
+        </p>
+      ) : (
+        <>
+          <ul className="grid grid-cols-2 gap-2.5">
+            {assets.map((asset) => (
+              <MediaTile key={asset} compositionId={composition.id} asset={asset} onAdd={add} />
+            ))}
+          </ul>
+          <p className="mt-3 text-[12px] leading-[1.5] text-dim">
+            Drag onto the timeline, or double-click to add at the playhead.
+          </p>
+        </>
+      )}
+      {addError && <p className="mt-2 text-[13px] text-destructive">{addError}</p>}
+    </PanelSection>
+  );
+}
 
 function AssetThumb({ compositionId, asset }: { compositionId: string; asset: string }) {
   const src = compositionAssetUrl(compositionId, asset);
@@ -32,160 +183,13 @@ function AssetThumb({ compositionId, asset }: { compositionId: string; asset: st
     return <img src={src} alt="" className="size-full object-cover" />;
   }
   return (
-    <div className="flex size-full items-center justify-center bg-canvas-preview text-muted-foreground">
+    <div className="flex size-full items-center justify-center bg-raised text-muted-foreground">
       <SpeakerWaveIcon className="size-5" />
     </div>
   );
 }
 
-type LibraryPanelProps = {
-  composition: Composition | null;
-  files: string[];
-  collapsed: boolean;
-  onTrack: (track: MediaTrack) => Promise<void>;
-};
-
 function beginAssetDrag(event: React.DragEvent, asset: string) {
   event.dataTransfer.setData(LIBRARY_ASSET_MIME, asset);
   event.dataTransfer.effectAllowed = "copy";
-}
-
-export function LibraryPanel({ composition, files, collapsed, onTrack }: LibraryPanelProps) {
-  const [assets, setAssets] = useState<string[]>([]);
-  const [selected, setSelected] = useState<string | null>(null);
-  const [addError, setAddError] = useState<string | null>(null);
-  useEffect(() => {
-    setAssets(
-      files
-        .filter((file) => file.startsWith("assets/"))
-        .map((file) => file.slice("assets/".length)),
-    );
-  }, [files]);
-  useEffect(() => {
-    if (selected && !assets.includes(selected)) setSelected(null);
-  }, [assets, selected]);
-
-  if (!composition) return null;
-
-  const addToTimeline = async (asset: string) => {
-    setAddError(null);
-    try {
-      await addAssetToTimeline(composition.id, asset, onTrack);
-    } catch (error) {
-      setAddError(friendlyMediaError(error));
-    }
-  };
-
-  const importAsset = async () => {
-    const result = await window.studio.assets.import(composition.id);
-    if (result) setAssets((current) => [...new Set([...current, result.asset])]);
-  };
-
-  if (collapsed) {
-    return (
-      <div className="flex shrink-0 flex-col items-center gap-1 border-t border-border px-1 py-2">
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Import"
-          onClick={() => void importAsset()}
-        >
-          <FolderPlusIcon />
-        </Button>
-        {assets.slice(0, 4).map((file) => (
-          <button
-            type="button"
-            key={file}
-            draggable
-            className={cn(
-              "size-10 cursor-grab overflow-hidden rounded-md bg-surface active:cursor-grabbing",
-              selected === file && "ring-2 ring-inset ring-ring",
-            )}
-            aria-label={file}
-            aria-pressed={selected === file}
-            onClick={() => setSelected(file)}
-            onDragStart={(event) => beginAssetDrag(event, file)}
-          >
-            <AssetThumb compositionId={composition.id} asset={file} />
-          </button>
-        ))}
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Add to timeline"
-          disabled={!selected}
-          onClick={() => {
-            if (selected) void addToTimeline(selected);
-          }}
-        >
-          <PlusIcon />
-        </Button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex min-h-0 flex-1 flex-col border-t border-border">
-      <div className="flex h-9 shrink-0 items-center justify-between gap-2 px-3">
-        <h3 className="flex items-center gap-2 text-sm font-medium">
-          <FolderIcon className="size-4 text-muted-foreground" />
-          Library
-        </h3>
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={!selected}
-            onClick={() => {
-              if (selected) void addToTimeline(selected);
-            }}
-          >
-            Add
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            aria-label="Import"
-            onClick={() => void importAsset()}
-          >
-            <FolderPlusIcon />
-          </Button>
-        </div>
-      </div>
-      <ScrollArea className="min-h-0 flex-1">
-        <div className="px-3 pt-1.5 pb-3">
-          {addError && <p className="pb-2 text-sm text-destructive">{addError}</p>}
-          {assets.length === 0 ? (
-            <p className="px-1 py-3 text-sm text-muted-foreground">Import media to use it here.</p>
-          ) : (
-            <ul className="-mx-1 grid grid-cols-2 gap-1">
-              {assets.map((file) => (
-                <li key={file}>
-                  <button
-                    type="button"
-                    draggable
-                    className={cn(
-                      "flex w-full cursor-grab flex-col gap-1.5 rounded-lg p-1 text-left transition-colors duration-200 ease-out outline-none hover:bg-surface hover:transition-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing",
-                      selected === file && "bg-surface",
-                    )}
-                    aria-label={file}
-                    aria-pressed={selected === file}
-                    onClick={() => setSelected(file)}
-                    onDragStart={(event) => beginAssetDrag(event, file)}
-                  >
-                    <span className="aspect-video w-full overflow-hidden rounded-md bg-surface outline -outline-offset-1 outline-foreground/10">
-                      <AssetThumb compositionId={composition.id} asset={file} />
-                    </span>
-                    <span className="truncate px-1 pb-0.5 text-xs text-muted-foreground">
-                      {file}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </ScrollArea>
-    </div>
-  );
 }

@@ -3,7 +3,7 @@ import path from "node:path";
 import type { Page } from "playwright";
 import type { Composition } from "@shared/schemas.ts";
 import { frameFromTime } from "@shared/clock.ts";
-import { createId, removeFile } from "./fs.ts";
+import { createId, pathExists, removeFile } from "./fs.ts";
 import { compositionContentUrl } from "./loopback.ts";
 import { captureLoopSeam } from "./loop-seam.ts";
 import { seekInjectedRuntime, waitForPaint } from "./page-runtime.ts";
@@ -18,7 +18,14 @@ export const thumbnailSourceMaxDimension = 16_384;
 export const thumbnailSourceMaxPixels = 64 * 1024 * 1024;
 const thumbnailDirectory = ".automedia";
 const thumbnailName = "thumbnail.png";
+const framesDirectory = "frames";
 const defaultDebounceMs = 500;
+const frameBatchMs = 30;
+
+/** Filmstrip frames are small: a timeline lane is under 50px tall. */
+export const frameMinHeight = 16;
+export const frameMaxHeight = 240;
+export const frameDefaultHeight = 64;
 
 export const thumbnailMutationOperations = new Set([
   "create_composition",
@@ -80,6 +87,21 @@ export function thumbnailPath(store: CompositionStore, compositionId: string): s
   return path.join(store.compositionDir(compositionId), thumbnailDirectory, thumbnailName);
 }
 
+/** Where the filmstrip frames of one composition revision live. */
+export function framesPath(store: CompositionStore, compositionId: string): string {
+  return path.join(store.compositionDir(compositionId), thumbnailDirectory, framesDirectory);
+}
+
+export function frameHeight(requested: number): number {
+  if (!Number.isFinite(requested)) return frameDefaultHeight;
+  return Math.min(frameMaxHeight, Math.max(frameMinHeight, Math.round(requested)));
+}
+
+/** Frames are keyed by the manifest's updatedAt, which every authoring write bumps. */
+export function frameStamp(updatedAt: string): string {
+  return updatedAt.replaceAll(/[^0-9A-Za-z]/g, "") || "0";
+}
+
 export function thumbnailUrl(baseUrl: string, compositionId: string): string {
   return `${baseUrl.replace(/\/$/, "")}/compositions/${encodeURIComponent(compositionId)}/thumbnail.png`;
 }
@@ -92,6 +114,26 @@ export type ThumbnailCaptureOptions = {
 
 export type ThumbnailCapture = (options: ThumbnailCaptureOptions) => Promise<void>;
 
+export type FrameRequest = { timeSeconds: number; frame: number; outputPath: string };
+
+export type FrameCaptureOptions = {
+  composition: Composition;
+  baseUrl: string;
+  height: number;
+  frames: FrameRequest[];
+};
+
+/** Captures several frames of one composition from one page. */
+export type FrameCapture = (options: FrameCaptureOptions) => Promise<void>;
+
+function thumbnailScale(composition: Pick<Composition, "width" | "height">): number {
+  return Math.min(
+    1,
+    thumbnailMaxWidth / composition.width,
+    thumbnailMaxHeight / composition.height,
+  );
+}
+
 /**
  * A renderer kept separate from the queue so the queue can be tested without
  * launching Chromium. Pages come from the shared pool, each in its own
@@ -102,7 +144,7 @@ export class ChromiumThumbnailRenderer {
 
   async capture(options: ThumbnailCaptureOptions): Promise<void> {
     assertSafeSourceSize(options.composition);
-    await this.withContentPage(options, async (page) => {
+    await this.withContentPage(options, thumbnailScale(options.composition), async (page) => {
       const midpoint = options.composition.durationSeconds / 2;
       const frame = frameFromTime(
         midpoint,
@@ -119,27 +161,44 @@ export class ChromiumThumbnailRenderer {
     });
   }
 
+  async captureFrames(options: FrameCaptureOptions): Promise<void> {
+    const { composition } = options;
+    assertSafeSourceSize(composition);
+    const scale = Math.min(1, options.height / composition.height);
+    await this.withContentPage(options, scale, async (page) => {
+      // A fresh page's first draw can land after its first paint (WebGL above all), so the
+      // first frame of a batch came out blank. Draw it once before capturing anything.
+      const first = options.frames[0];
+      if (first) {
+        await seekInjectedRuntime(page, first.timeSeconds, first.frame);
+        await waitForPaint(page);
+      }
+      for (const item of options.frames) {
+        await seekInjectedRuntime(page, item.timeSeconds, item.frame);
+        await waitForPaint(page);
+        await page.screenshot({
+          path: item.outputPath,
+          omitBackground: composition.background === "transparent",
+          scale: "device",
+        });
+      }
+    });
+  }
+
   async compareLoopSeam(options: ThumbnailCaptureOptions): Promise<boolean> {
     assertSafeSourceSize(options.composition);
-    return this.withContentPage(options, (page) =>
+    return this.withContentPage(options, thumbnailScale(options.composition), (page) =>
       captureLoopSeam(page, options.composition.fps, options.composition.durationSeconds),
     );
   }
 
   private withContentPage<T>(
-    options: ThumbnailCaptureOptions,
+    options: { composition: Composition; baseUrl: string },
+    deviceScaleFactor: number,
     run: (page: Page) => Promise<T>,
   ): Promise<T> {
     const { composition } = options;
-    const viewport = {
-      width: composition.width,
-      height: composition.height,
-      deviceScaleFactor: Math.min(
-        1,
-        thumbnailMaxWidth / composition.width,
-        thumbnailMaxHeight / composition.height,
-      ),
-    };
+    const viewport = { width: composition.width, height: composition.height, deviceScaleFactor };
     return this.pool.light.run("thumbnails", () =>
       this.pool.withPage(viewport, async (page) => {
         const url = compositionContentUrl(options.baseUrl, composition.id);
@@ -153,6 +212,17 @@ export class ChromiumThumbnailRenderer {
   }
 }
 
+type FrameBatch = {
+  composition: Composition;
+  directory: string;
+  height: number;
+  items: {
+    request: FrameRequest;
+    resolve: (file: string) => void;
+    reject: (error: Error) => void;
+  }[];
+};
+
 type PendingComposition = {
   revision: number;
   timer: ReturnType<typeof setTimeout> | undefined;
@@ -165,6 +235,7 @@ export type ThumbnailServiceOptions = {
   /** Renders through the pool unless a capture function is given. */
   pool?: RenderPool;
   capture?: ThumbnailCapture;
+  captureFrames?: FrameCapture;
   onReady?: (compositionId: string) => void;
   onError?: (compositionId: string, error: Error) => void;
 };
@@ -180,6 +251,9 @@ export class ThumbnailService {
   private readonly debounceMs: number;
   private readonly renderer: ChromiumThumbnailRenderer | undefined;
   private readonly capture: ThumbnailCapture;
+  private readonly captureFrames: FrameCapture | undefined;
+  private readonly frameJobs = new Map<string, Promise<string>>();
+  private readonly frameBatches = new Map<string, FrameBatch>();
   private active: Promise<void> | undefined;
   private stopped = false;
 
@@ -188,14 +262,94 @@ export class ThumbnailService {
     private readonly options: ThumbnailServiceOptions,
   ) {
     this.debounceMs = options.debounceMs ?? defaultDebounceMs;
+    const renderer = options.pool ? new ChromiumThumbnailRenderer(options.pool) : undefined;
+    this.renderer = renderer;
     if (options.capture) {
       this.capture = options.capture;
-    } else if (options.pool) {
-      const renderer = new ChromiumThumbnailRenderer(options.pool);
-      this.renderer = renderer;
+    } else if (renderer) {
       this.capture = (captureOptions) => renderer.capture(captureOptions);
     } else {
       throw new Error("thumbnails need a render pool or a capture function");
+    }
+    this.captureFrames =
+      options.captureFrames ??
+      (renderer ? (frameOptions) => renderer.captureFrames(frameOptions) : undefined);
+  }
+
+  /**
+   * One filmstrip frame at a time on the timeline, cached on disk per
+   * composition revision. Requests that arrive together share one page.
+   */
+  async frame(compositionId: string, timeSeconds: number, height: number): Promise<string> {
+    if (this.stopped) throw new Error("thumbnails are closed");
+    if (!this.captureFrames) throw new Error("filmstrip frames need a render pool");
+    const composition = await this.store.get(compositionId);
+    const size = frameHeight(height);
+    const frame = frameFromTime(
+      Math.max(0, timeSeconds),
+      composition.fps,
+      composition.durationSeconds,
+    );
+    const directory = path.join(
+      framesPath(this.store, compositionId),
+      frameStamp(composition.updatedAt),
+    );
+    const outputPath = path.join(directory, `${size}-${frame}.png`);
+    if (await pathExists(outputPath)) return outputPath;
+    const running = this.frameJobs.get(outputPath);
+    if (running) return running;
+    const job = new Promise<string>((resolve, reject) => {
+      const key = `${directory}|${size}`;
+      let batch = this.frameBatches.get(key);
+      if (!batch) {
+        const created: FrameBatch = { composition, directory, height: size, items: [] };
+        batch = created;
+        this.frameBatches.set(key, created);
+        setTimeout(() => {
+          this.frameBatches.delete(key);
+          void this.runFrameBatch(created);
+        }, frameBatchMs);
+      }
+      batch.items.push({
+        request: { timeSeconds: frame / composition.fps, frame, outputPath },
+        resolve,
+        reject,
+      });
+    });
+    this.frameJobs.set(outputPath, job);
+    try {
+      return await job;
+    } finally {
+      this.frameJobs.delete(outputPath);
+    }
+  }
+
+  private async runFrameBatch(batch: FrameBatch): Promise<void> {
+    const temps = batch.items.map((item) => ({
+      ...item.request,
+      outputPath: `${item.request.outputPath}.${createId("frame")}.tmp.png`,
+    }));
+    try {
+      if (this.stopped || !this.captureFrames) throw new Error("thumbnails are closed");
+      await mkdir(batch.directory, { recursive: true });
+      await pruneStaleFrames(path.dirname(batch.directory), path.basename(batch.directory));
+      await this.captureFrames({
+        composition: batch.composition,
+        baseUrl: this.options.baseUrl,
+        height: batch.height,
+        frames: temps,
+      });
+      for (const [index, item] of batch.items.entries()) {
+        const temp = temps[index];
+        if (!temp) continue;
+        await rename(temp.outputPath, item.request.outputPath);
+        item.resolve(item.request.outputPath);
+      }
+    } catch (cause) {
+      const error = cause instanceof Error ? cause : new Error("frame capture failed");
+      for (const item of batch.items) item.reject(error);
+    } finally {
+      await Promise.all(temps.map((temp) => removeFile(temp.outputPath)));
     }
   }
 
@@ -344,6 +498,21 @@ async function cleanupTemporaryFiles(
           (entry.name.endsWith(".tmp") || entry.name.endsWith(".tmp.png")),
       )
       .map((entry) => rm(path.join(directory, entry.name), { force: true })),
+  );
+}
+
+/** Frames of older revisions are never asked for again. */
+async function pruneStaleFrames(root: string, keep: string): Promise<void> {
+  let entries: import("node:fs").Dirent[];
+  try {
+    entries = await readdir(root, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  await Promise.all(
+    entries
+      .filter((entry) => entry.isDirectory() && entry.name !== keep)
+      .map((entry) => rm(path.join(root, entry.name), { recursive: true, force: true })),
   );
 }
 

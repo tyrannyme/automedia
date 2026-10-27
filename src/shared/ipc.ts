@@ -107,6 +107,8 @@ export type ExportFile = {
   format: ExportFormat;
   fileName: string;
   mtimeMs: number;
+  /** Size on disk. */
+  bytes: number;
 };
 
 /** A found update, from the first sighting until it is installed. */
@@ -126,6 +128,12 @@ export type IpcResult<T> =
   | { ok: true; data: T }
   | { ok: false; error: { code: string; message: string } };
 
+/** An agent's claim on a composition, as listCompositions reports it. */
+export type CompositionLease = { holder: string; until: string };
+
+/** A composition as the project list shows it, with whoever holds it right now. */
+export type ListedComposition = Composition & { lease: CompositionLease | null };
+
 export type StudioApi = {
   app: {
     getInfo: () => Promise<AppInfo>;
@@ -133,7 +141,7 @@ export type StudioApi = {
     setSettings: (settings: AppSettings) => Promise<AppSettings>;
   };
   compositions: {
-    list: () => Promise<Composition[]>;
+    list: () => Promise<ListedComposition[]>;
     get: (compositionId: string) => Promise<Composition>;
     create: (input?: { name?: string; example?: ExampleId }) => Promise<Composition>;
     updateSettings: (input: UpdateSettingsInput) => Promise<Composition>;

@@ -5,12 +5,15 @@ import { compositionThumbnailSrc } from "@/lib/thumbnails.ts";
 import { useStudioStore } from "@/stores/studio.ts";
 import { cn } from "@/lib/utils.ts";
 
+/** A project's live thumbnail. It refreshes whenever the engine renders a new one. */
 export function ProjectPoster({
   composition,
   className,
+  style,
 }: {
-  composition: Composition;
+  composition: Pick<Composition, "id" | "name" | "background">;
   className?: string;
+  style?: React.CSSProperties;
 }) {
   const revision = useStudioStore((state) => state.thumbnailRevisions[composition.id] ?? 0);
   const failed = useStudioStore((state) => state.thumbnailFailures[composition.id] === true);
@@ -38,9 +41,11 @@ export function ProjectPoster({
   return (
     <div
       className={cn(
-        "relative shrink-0 overflow-hidden rounded-md bg-surface outline -outline-offset-1 outline-foreground/10",
+        "relative shrink-0 overflow-hidden rounded-md outline -outline-offset-1 outline-foreground/10",
+        composition.background === "transparent" ? "chequer" : "bg-surface",
         className,
       )}
+      style={style}
       aria-hidden="true"
       data-thumbnail-state={state}
       data-composition-id={composition.id}

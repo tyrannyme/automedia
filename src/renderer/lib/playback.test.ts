@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { applyPlaybackTime, applyPreviewTime, playFrom, wrapPlayback } from "./playback.ts";
+import {
+  applyPlaybackTime,
+  applyPreviewTime,
+  frameTimecode,
+  playFrom,
+  wrapPlayback,
+} from "./playback.ts";
 
 describe("playFrom", () => {
   it("starts from the current playhead", () => {
@@ -71,5 +77,14 @@ describe("wrapPlayback", () => {
       playing: false,
       wrapped: false,
     });
+  });
+});
+
+describe("frameTimecode", () => {
+  it("names the same frame as the frame number", () => {
+    expect(frameTimecode(79, 30)).toBe("00:00:02:19");
+    expect(frameTimecode(240, 30)).toBe("00:00:08:00");
+    expect(frameTimecode(0, 24)).toBe("00:00:00:00");
+    expect(frameTimecode(30 * 3725 + 7, 30)).toBe("01:02:05:07");
   });
 });

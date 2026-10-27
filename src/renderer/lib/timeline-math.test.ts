@@ -20,6 +20,16 @@ import {
   trimClipEndOnLane,
   trimClipStart,
   trimClipStartOnLane,
+  clipInset,
+  formatSnapSeconds,
+  labeledSnapTargets,
+  LANE_ROW,
+  LANE_ROW_COMPACT,
+  nearestSnap,
+  newLaneIndexAt,
+  sliderToZoom,
+  snapTargets,
+  zoomToSlider,
 } from "./timeline-math.ts";
 
 const clip = {
@@ -140,5 +150,74 @@ describe("timeline math", () => {
     expect(formatRulerTime(1.5, 0.5)).toBe("1.5s");
     expect(formatRulerTime(0.04, 0.04)).toBe("0.04s");
     expect(formatRulerTime(75, 15)).toBe("1:15");
+  });
+
+  it("sizes compact rows and clip insets", () => {
+    const rows = [{ kind: "block" }, { kind: "audio" }, { kind: "video" }];
+    expect(rowOffset(rows, 2, LANE_ROW_COMPACT)).toBe(72);
+    expect(rowIndexAtOffset(rows, 40, LANE_ROW_COMPACT)).toBe(1);
+    expect(dropLineOffset(rows, 0, 2, LANE_ROW_COMPACT)).toBe(108);
+    expect(clipInset(LANE_ROW)).toBe(4);
+    expect(clipInset(LANE_ROW_COMPACT)).toBe(3);
+  });
+
+  it("opens a new lane near a row boundary or below the last row", () => {
+    expect(newLaneIndexAt(0, 0)).toBe(0);
+    expect(newLaneIndexAt(3, LANE_ROW * 3 - 4)).toBe(3);
+    expect(newLaneIndexAt(3, LANE_ROW + 3)).toBe(1);
+    expect(newLaneIndexAt(3, LANE_ROW * 2 - 5)).toBe(2);
+    expect(newLaneIndexAt(3, 4)).toBeNull();
+    expect(newLaneIndexAt(3, LANE_ROW / 2)).toBeNull();
+    expect(newLaneIndexAt(2, 36 + 2, 36)).toBe(1);
+  });
+
+  it("maps the zoom slider logarithmically and back", () => {
+    expect(zoomToSlider(24)).toBe(0);
+    expect(zoomToSlider(800)).toBe(1);
+    expect(zoomToSlider(10)).toBe(0);
+    expect(sliderToZoom(0)).toBe(24);
+    expect(sliderToZoom(1.5)).toBeCloseTo(800);
+    expect(sliderToZoom(0.5)).toBeCloseTo(Math.sqrt(24 * 800));
+    expect(sliderToZoom(zoomToSlider(120))).toBeCloseTo(120);
+  });
+
+  it("names snap targets for the tooltip", () => {
+    const clips = [
+      { ...clip, id: "a", kind: "block", name: "Intro", asset: "b1" },
+      { ...clip, id: "b", start: 3, kind: "video", asset: "clip.mp4" },
+      { ...clip, id: "c", start: 5 },
+    ];
+    const markers = [{ timeSeconds: 4, id: "m1", label: "Drop" }, { timeSeconds: 6 }];
+    const targets = labeledSnapTargets(clips, markers, 2.5, 8, "c");
+    expect(targets).toEqual([
+      { time: 0, label: "start" },
+      { time: 8, label: "end" },
+      { time: 2.5, label: "playhead" },
+      { time: 4, label: "Drop", markerId: "m1" },
+      { time: 6, label: "marker" },
+      { time: 1, label: "Intro" },
+      { time: 2, label: "Intro" },
+      { time: 3, label: "clip.mp4" },
+      { time: 4, label: "clip.mp4" },
+    ]);
+    expect(snapTargets(clips, markers, 2.5, 8, "c")).toEqual(targets.map((t) => t.time));
+    expect(labeledSnapTargets([clips[2]!], [], 0, 8)[3]).toEqual({ time: 5, label: "clip" });
+  });
+
+  it("finds the nearest named snap, earliest on a tie", () => {
+    const targets = [
+      { time: 4, label: "Drop", markerId: "m1" },
+      { time: 4, label: "clip.mp4" },
+      { time: 4.5, label: "end" },
+    ];
+    expect(nearestSnap(4.02, targets, 0.04)).toEqual(targets[0]);
+    expect(nearestSnap(4.48, targets, 0.04)?.label).toBe("end");
+    expect(nearestSnap(4.2, targets, 0.04)).toBeNull();
+  });
+
+  it("formats snap seconds with two decimals", () => {
+    expect(formatSnapSeconds(4)).toBe("4.00 s");
+    expect(formatSnapSeconds(1.236)).toBe("1.24 s");
+    expect(formatSnapSeconds(-0.2)).toBe("0.00 s");
   });
 });

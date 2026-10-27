@@ -19,6 +19,8 @@ export const controllerSource = String.raw`
     postedReady: false,
     seekSerial: Promise.resolve(),
     latestSeekMessage: null,
+    // The time of a seek message that has not finished drawing yet.
+    pendingSeekTime: null,
   };
 
   function reportScriptError(error) {
@@ -467,9 +469,12 @@ export const controllerSource = String.raw`
   function seekToMessage(timeSeconds, frame) {
     const request = {};
     state.latestSeekMessage = request;
+    state.pendingSeekTime = timeSeconds;
     void serialSeek(() =>
       state.latestSeekMessage === request ? seekNow(timeSeconds, frame) : undefined,
-    );
+    ).finally(() => {
+      if (state.latestSeekMessage === request) state.pendingSeekTime = null;
+    });
   }
 
   // Text measured before its font arrives uses the fallback font's metrics.
@@ -668,7 +673,11 @@ export const controllerSource = String.raw`
     }
     if (message.type === "documents") {
       const wasPlaying = state.playing;
-      const timeSeconds = currentPlayTime();
+      // A seek still in flight is where the studio wants the picture, not the last time drawn.
+      const timeSeconds =
+        !wasPlaying && state.pendingSeekTime !== null
+          ? clampTime(state.pendingSeekTime)
+          : currentPlayTime();
       state.playing = false;
       stopAnimationLoop();
       if (wasPlaying) postTime(timeSeconds, false);

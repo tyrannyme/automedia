@@ -17,7 +17,7 @@ compositions/<composition-id>/
 └── exports/                # completed export files
 ```
 
-Save project writes a `.automedia` zip of the authored tree plus the sidebar thumbnail. Import project unpacks that file as a new library item with a new id. Exports, activity logs, and generated music runtime files stay out of the snapshot. The live project remains in the library.
+Save project writes a `.automedia` zip of the authored tree plus its poster. Import project unpacks that file as a new library item with a new id. Exports, activity logs, and generated music runtime files stay out of the snapshot. The live project remains in the library.
 
 Projects default to 800×600 at 30 fps for three seconds with a transparent background. Composition sizes can range from 1 to 16,384 pixels, frame rates from 1 to 240 fps, and durations up to one hour.
 
@@ -111,7 +111,7 @@ automedia stop      stop it
 
 Options: `--library <dir>` serves another library (`AUTOMEDIA_LIBRARY`), and `--port <n>` runs a second engine beside the first (`AUTOMEDIA_LOOPBACK_PORT`). On `daemon`, `--idle-minutes <n>` sets the idle exit (`0` never exits), and `--export-slots <n>` and `--render-slots <n>` set how much runs at once. The defaults are one export per six cores, and one validation or thumbnail per four cores, between two and six. The default library is the studio's, so agents' compositions appear in the studio. An engine started in the background logs to `engine.log` in the library.
 
-Agents can share one library because the engine serves it alone. Claim a composition with `claim_composition` before writing it. Export jobs report an absolute `outputPath`.
+Agents can share one library because the engine serves it alone. Claim a composition with `claim_composition` before writing it. Export jobs report an absolute `outputPath`. Files are named after the project: `four-chords.mp4`, `four-chords-f79.png` for a still at frame 79, and `four-chords-2.mp4` when the name is taken. `exports/.exports.json` maps each file back to its job id.
 
 Thumbnails are for people, so the engine renders them only while a studio is open. Edits made with no studio open leave thumbnails stale until one connects.
 
@@ -125,6 +125,7 @@ The engine listens on `127.0.0.1:47821`:
 - `GET /events` for server-sent studio and export events
 - `GET /compositions/<id>/content/<path>` for rendered project files
 - `GET /compositions/<id>/exports/<job-id>` for completed exports
+- `GET /compositions/<id>/thumbnail.png` for the project poster, and `?t=<seconds>&h=<pixels>` for one frame at that time, 16 to 240 pixels tall, as the timeline's filmstrips use
 
 The studio exposes Chromium remote debugging for its window at `http://127.0.0.1:47822`. Override either port when needed:
 

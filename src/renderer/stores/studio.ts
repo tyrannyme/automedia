@@ -3,7 +3,7 @@ import type { ActivityEntry } from "../../engine/activity.ts";
 import type { ExportJob } from "../../engine/export.ts";
 import type { RuntimeCatalog } from "../../engine/runtime.ts";
 import type { ValidationReport } from "../../engine/validate.ts";
-import type { ExportFile } from "@shared/ipc.ts";
+import type { ExportFile, ListedComposition } from "@shared/ipc.ts";
 import { addAssetToTimeline } from "@/lib/add-asset.ts";
 import type { Composition, Control, MediaDocument, MediaTrack, Marker } from "@shared/schemas.ts";
 import type { ExampleId } from "../../engine/examples/index.ts";
@@ -55,7 +55,7 @@ type WorkspaceSnapshot = {
 type StudioState = {
   mode: WorkspaceMode;
   compositionId: string | null;
-  compositions: Composition[];
+  compositions: ListedComposition[];
   openIds: string[];
   composition: Composition | null;
   media: MediaDocument;
@@ -76,6 +76,10 @@ type StudioState = {
   playheadSeconds: number;
   playing: boolean;
   loopPlayback: boolean;
+  /** Stage: the preview's own mute, separate from each clip's mute. */
+  previewMuted: boolean;
+  /** Stage: "fit" or a fixed picture scale. */
+  stageZoom: "fit" | number;
   seekNonce: number;
   selectedTrackId: string | null;
   selectedMarkerId: string | null;
@@ -97,6 +101,19 @@ type StudioState = {
   loopSeam: boolean | null;
   loopSeamEpoch: number;
   exportJobs: ExportJob[];
+  /** Home, the project gallery, covers the open project without closing it. */
+  homeOpen: boolean;
+  /** Below the compact breakpoint the panel is an overlay sheet; this is whether it is open. */
+  panelSheetOpen: boolean;
+  /** Set by the shell from the window width. */
+  compactLayout: boolean;
+  showHome: () => void;
+  openProject: (id: string) => Promise<void>;
+  setPanelSheetOpen: (open: boolean) => void;
+  togglePanelSheet: () => void;
+  setCompactLayout: (compact: boolean) => void;
+  /** Move any project to the library's .trash folder, open or not. */
+  trashComposition: (id: string) => Promise<void>;
   setMode: (mode: WorkspaceMode) => void;
   setPlayhead: (seconds: number) => void;
   seekTo: (seconds: number) => void;
@@ -104,6 +121,8 @@ type StudioState = {
   togglePlay: () => void;
   applyClockTime: (seconds: number) => void;
   setLoopPlayback: (loop: boolean) => void;
+  setPreviewMuted: (muted: boolean) => void;
+  setStageZoom: (zoom: "fit" | number) => void;
   setSelectedTrackId: (id: string | null) => void;
   setSelectedMarkerId: (id: string | null) => void;
   setCode: (file: CodeFile, value: string) => void;
@@ -493,6 +512,8 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   playheadSeconds: 0,
   playing: false,
   loopPlayback: false,
+  previewMuted: false,
+  stageZoom: "fit",
   seekNonce: 0,
   selectedTrackId: null,
   selectedMarkerId: null,
@@ -514,6 +535,34 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   loopSeam: null,
   loopSeamEpoch: 0,
   exportJobs: [],
+  homeOpen: false,
+  panelSheetOpen: false,
+  compactLayout: false,
+  showHome: () => {
+    if (get().playing) get().setPlaying(false);
+    set({ homeOpen: true, panelSheetOpen: false });
+  },
+  openProject: async (id) => {
+    set({ homeOpen: false });
+    await get().selectComposition(id);
+  },
+  setPanelSheetOpen: (open) => set({ panelSheetOpen: open }),
+  togglePanelSheet: () => set({ panelSheetOpen: !get().panelSheetOpen }),
+  setCompactLayout: (compact) => {
+    if (compact === get().compactLayout) return;
+    set({ compactLayout: compact, panelSheetOpen: false });
+  },
+  trashComposition: async (id) => {
+    if (id === get().compositionId) {
+      await get().removeComposition();
+      return;
+    }
+    await window.studio.compositions.remove(id);
+    const cache = { ...get().cache };
+    delete cache[id];
+    set({ cache, openIds: rememberOpen(get().openIds.filter((item) => item !== id)) });
+    await get().reloadLists();
+  },
   setMode: (mode) => set({ mode }),
   setPlayhead: (seconds) => {
     const duration = get().composition?.durationSeconds ?? Number.POSITIVE_INFINITY;
@@ -556,6 +605,8 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     });
   },
   setLoopPlayback: (loopPlayback) => set({ loopPlayback }),
+  setPreviewMuted: (previewMuted) => set({ previewMuted }),
+  setStageZoom: (stageZoom) => set({ stageZoom }),
   setSelectedTrackId: (selectedTrackId) => {
     const previous = get();
     const previousDir = blockDir(previous.media, previous.selectedTrackId);
@@ -752,11 +803,13 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       set({ cache, openIds });
       return;
     }
-    const next = openIds.at(-1) ?? current.compositions.find((item) => item.id !== id)?.id;
+    // With tabs, closing the last one goes Home instead of opening a project nobody asked for.
+    const next = openIds.at(-1);
     set({ cache, openIds });
     if (next) await get().selectComposition(next);
     else {
       set({
+        homeOpen: true,
         compositionId: null,
         composition: null,
         media: emptyMedia,
@@ -799,10 +852,17 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     const openIds = rememberOpen(get().openIds.filter((item) => item !== id));
     set({ cache, openIds });
     await get().reloadLists();
-    const next = get().openIds.at(-1) ?? get().compositions.at(-1)?.id;
+    const next = get().openIds.at(-1);
     if (next) await get().selectComposition(next);
     else {
-      set({ compositionId: null, composition: null, media: emptyMedia, controls: [], files: [] });
+      set({
+        homeOpen: true,
+        compositionId: null,
+        composition: null,
+        media: emptyMedia,
+        controls: [],
+        files: [],
+      });
       await window.studio.app.setSettings({ lastCompositionId: null });
     }
   },
@@ -843,7 +903,11 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     set({ exports, exportJobs });
   },
   reorderCompositions: async (ids) => {
-    set({ compositions: await window.studio.compositions.reorder(ids) });
+    const leases = new Map(get().compositions.map((item) => [item.id, item.lease]));
+    const ordered = await window.studio.compositions.reorder(ids);
+    set({
+      compositions: ordered.map((item) => ({ ...item, lease: leases.get(item.id) ?? null })),
+    });
   },
   addLibraryAsset: async (asset, start, lane) => {
     const id = get().compositionId;
@@ -883,7 +947,9 @@ export const useStudioStore = create<StudioState>((set, get) => ({
         pendingWrites,
         composition,
         compositions: composition
-          ? current.compositions.map((item) => (item.id === composition.id ? composition : item))
+          ? current.compositions.map((item) =>
+              item.id === composition.id ? { ...item, ...composition } : item,
+            )
           : current.compositions,
         playheadSeconds: Math.min(
           current.playheadSeconds,
@@ -932,7 +998,9 @@ export const useStudioStore = create<StudioState>((set, get) => ({
         pendingWrites: nextPending,
         composition,
         compositions: composition
-          ? current.compositions.map((item) => (item.id === composition.id ? composition : item))
+          ? current.compositions.map((item) =>
+              item.id === composition.id ? { ...item, ...composition } : item,
+            )
           : current.compositions,
         playheadSeconds: Math.min(
           current.playheadSeconds,
@@ -967,7 +1035,9 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     set({
       composition,
       compositions: composition
-        ? get().compositions.map((item) => (item.id === composition.id ? composition : item))
+        ? get().compositions.map((item) =>
+            item.id === composition.id ? { ...item, ...composition } : item,
+          )
         : get().compositions,
       media,
       selectedTrackId: track.id,
@@ -994,7 +1064,9 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     set({
       composition,
       compositions: composition
-        ? get().compositions.map((item) => (item.id === composition.id ? composition : item))
+        ? get().compositions.map((item) =>
+            item.id === composition.id ? { ...item, ...composition } : item,
+          )
         : get().compositions,
       media,
       selectedTrackId: track.id,
@@ -1015,7 +1087,9 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     set({
       composition,
       compositions: composition
-        ? get().compositions.map((item) => (item.id === composition.id ? composition : item))
+        ? get().compositions.map((item) =>
+            item.id === composition.id ? { ...item, ...composition } : item,
+          )
         : get().compositions,
       media,
       playheadSeconds,
@@ -1092,7 +1166,9 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     });
     set({
       composition: updated,
-      compositions: get().compositions.map((item) => (item.id === updated.id ? updated : item)),
+      compositions: get().compositions.map((item) =>
+        item.id === updated.id ? { ...item, ...updated } : item,
+      ),
       playheadSeconds: Math.min(get().playheadSeconds, updated.durationSeconds),
     });
   },
