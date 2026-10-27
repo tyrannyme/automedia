@@ -290,6 +290,26 @@
             <li>save_project</li>
           </ul>
         </div>
+        <div class="cloud" id="cloud">
+          <div>
+            <p class="label">Cloud agents</p>
+            <h3>Are you a cloud agent? Run Automedia headless.</h3>
+            <p>
+              No display, no GPU, and no studio needed. The engine renders stills, audio, and video
+              on the CPU from your cloud computer. If your sandbox can't download Chromium, point it
+              at a headless shell you installed ahead of time.
+            </p>
+          </div>
+          <div>
+            <pre class="code"><code data-highlight="sh">export AUTOMEDIA_CHROMIUM_EXECUTABLE_PATH=\
+  /opt/chromium/headless_shell</code></pre>
+            <a
+              class="button ghost small"
+              href="https://github.com/tyrannyme/automedia/blob/main/docs/cloud.md"
+              >Read the cloud guide</a
+            >
+          </div>
+        </div>
       </section>
 
       <section class="studio" id="studio">

@@ -84,3 +84,15 @@ jobs:
             out/make/*.exe
             out/make/zip/**/*.zip
           if-no-files-found: error
+
+  cloud-smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build pre-provisioned CPU test image
+        run: docker build -f tools/cloud/Dockerfile -t automedia-cloud-test .
+
+      - name: Verify still, audio and video exports without a GPU
+        run: docker run --rm --init --cpus=2 --memory=4g --shm-size=512m automedia-cloud-test
