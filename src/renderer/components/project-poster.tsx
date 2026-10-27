@@ -37,7 +37,10 @@ export function ProjectPoster({
 
   return (
     <div
-      className={cn("relative shrink-0 overflow-hidden rounded-lg bg-surface", className)}
+      className={cn(
+        "relative shrink-0 overflow-hidden rounded-md bg-surface outline -outline-offset-1 outline-foreground/10",
+        className,
+      )}
       aria-hidden="true"
       data-thumbnail-state={state}
       data-composition-id={composition.id}

@@ -1,8 +1,8 @@
 import { CheckIcon } from "@heroicons/react/24/outline";
 import type { ExportJob } from "../../engine/export.ts";
 import type { Composition } from "@shared/schemas.ts";
-import appIconUrl from "../../../assets/icon.png";
 import { Button } from "@/components/ui/button.tsx";
+import { AppMark } from "@/components/app-mark.tsx";
 import { UpdateButton } from "@/components/update-button.tsx";
 import { exportIsRunning } from "@/lib/export-progress.ts";
 
@@ -28,15 +28,15 @@ export function Titlebar({
       className="titlebar studio-titlebar flex h-11 min-h-11 shrink-0 items-center gap-3 bg-background"
       aria-label="Automedia"
     >
-      <img
-        src={appIconUrl}
-        alt=""
-        aria-hidden="true"
-        className="size-6 shrink-0 rounded-lg object-cover"
-      />
-      <span className="font-wordmark text-base font-semibold">Automedia</span>
+      <span className="flex items-center gap-2">
+        <AppMark className="size-[18px] shrink-0" />
+        <span className="font-wordmark text-base font-semibold">Automedia</span>
+      </span>
       {editingName && (
         <span className="min-w-0 truncate text-sm text-muted-foreground">
+          <span className="px-1 text-border" aria-hidden="true">
+            /
+          </span>
           Editing {editingName}
         </span>
       )}
@@ -46,7 +46,13 @@ export function Titlebar({
       <UpdateButton exporting={running} />
 
       {editingName && (
-        <Button variant="default" data-no-drag="" onClick={onDoneEditing}>
+        <Button
+          variant="default"
+          size="sm"
+          className="px-3"
+          data-no-drag=""
+          onClick={onDoneEditing}
+        >
           <CheckIcon />
           Done
         </Button>
@@ -54,6 +60,8 @@ export function Titlebar({
 
       <Button
         variant={editingName ? "ghost" : running ? "secondary" : "default"}
+        size="sm"
+        className="px-3.5"
         data-no-drag=""
         data-export-trigger=""
         disabled={composition === null}

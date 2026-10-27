@@ -2,11 +2,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AdjustmentsHorizontalIcon,
   ArrowDownTrayIcon,
+  ArrowsPointingOutIcon,
   ChevronDownIcon,
   ClockIcon,
   CodeBracketIcon,
   Cog6ToothIcon,
   FilmIcon,
+  ForwardIcon,
   MapPinIcon,
   MusicalNoteIcon,
   PencilSquareIcon,
@@ -143,38 +145,43 @@ function Field({
   );
 }
 
-const sectionHead = {
-  composition: "bg-inspector-head-composition",
-  clip: "bg-inspector-head-clip",
-  marker: "bg-inspector-head-marker",
-  controls: "bg-inspector-head-controls",
-  exports: "bg-inspector-head-library",
-} as const;
-
 function Section({
   title,
   icon,
-  tone,
   children,
 }: {
   title: string;
   icon: React.ReactNode;
-  tone: keyof typeof sectionHead;
   children: React.ReactNode;
 }) {
   return (
-    <section className="space-y-3">
-      <h3
-        className={cn(
-          "flex h-9 items-center gap-2 rounded-md px-2.5 text-sm font-medium",
-          sectionHead[tone],
-        )}
-      >
-        <span className="size-4 shrink-0 [&_svg]:size-4">{icon}</span>
+    <section className="space-y-2">
+      <h3 className="flex h-8 items-center gap-2 text-sm font-medium text-foreground">
+        <span className="size-4 shrink-0 text-muted-foreground [&_svg]:size-4">{icon}</span>
         {title}
       </h3>
       {children}
     </section>
+  );
+}
+
+function Fact({
+  icon,
+  label,
+  children,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex min-h-8 items-center gap-2 text-sm">
+      <span className="flex w-28 shrink-0 items-center gap-2 font-medium text-muted-foreground">
+        <span className="size-4 shrink-0 [&_svg]:size-4">{icon}</span>
+        {label}
+      </span>
+      <span className="min-w-0 truncate">{children}</span>
+    </div>
   );
 }
 
@@ -278,7 +285,7 @@ export function Inspector({
       data-canvas="inspector"
     >
       <div className="flex h-11 shrink-0 items-center justify-between gap-2 px-4">
-        <h2 className="flex min-w-0 items-center gap-2 truncate text-sm font-medium">
+        <h2 className="flex min-w-0 items-center gap-2 truncate text-base font-medium">
           {selected ? (
             selected.kind === "audio" ? (
               <SpeakerWaveIcon className="size-4 shrink-0 text-muted-foreground" />
@@ -310,7 +317,7 @@ export function Inspector({
       <ScrollArea className="min-h-0 flex-1">
         <div className="space-y-8 px-4 pt-1 pb-6">
           {selected ? (
-            <Section title="Clip" tone="clip" icon={<PencilSquareIcon />}>
+            <Section title="Clip" icon={<PencilSquareIcon />}>
               <Field
                 icon={<PencilSquareIcon />}
                 label="Name"
@@ -467,7 +474,7 @@ export function Inspector({
               </Button>
             </Section>
           ) : selectedMarker ? (
-            <Section title="Marker" tone="marker" icon={<MapPinIcon />}>
+            <Section title="Marker" icon={<MapPinIcon />}>
               <Field
                 icon={<PencilSquareIcon />}
                 label="Label"
@@ -505,12 +512,43 @@ export function Inspector({
               </Button>
             </Section>
           ) : (
-            <Section title="Composition" tone="composition" icon={<FilmIcon />}>
-              <p className="font-mono text-sm text-muted-foreground">
-                {composition.width} × {composition.height} · {composition.fps} fps ·{" "}
-                {formatTimecode(contentDuration(media.tracks), composition.fps)}
-              </p>
-              <div className="flex flex-wrap gap-1">
+            <Section title="Composition" icon={<FilmIcon />}>
+              <div>
+                <Fact icon={<ArrowsPointingOutIcon />} label="Size">
+                  <span className="font-mono">
+                    {composition.width} × {composition.height}
+                  </span>
+                </Fact>
+                <Fact icon={<ForwardIcon />} label="Frame rate">
+                  <span className="font-mono">{composition.fps} fps</span>
+                </Fact>
+                <Fact icon={<ClockIcon />} label="Length">
+                  <span className="font-mono">
+                    {formatTimecode(contentDuration(media.tracks), composition.fps)}
+                  </span>
+                </Fact>
+                <Fact icon={<SwatchIcon />} label="Background">
+                  <span className="flex items-center gap-2">
+                    <span
+                      className={cn(
+                        "size-4 shrink-0 rounded-[4px] outline -outline-offset-1 outline-foreground/15",
+                        composition.background === "transparent" && "chequer",
+                      )}
+                      style={
+                        composition.background === "transparent"
+                          ? { backgroundSize: "8px 8px" }
+                          : { background: composition.background }
+                      }
+                    />
+                    <span className="font-mono">
+                      {composition.background === "transparent"
+                        ? "Transparent"
+                        : composition.background}
+                    </span>
+                  </span>
+                </Fact>
+              </div>
+              <div className="-mx-2.5 flex flex-wrap items-start [&>button]:text-muted-foreground [&>button]:hover:text-foreground">
                 <Button variant="ghost" size="sm" onClick={() => onCreateBlock?.()}>
                   <SquaresPlusIcon /> Add block
                 </Button>
@@ -534,7 +572,7 @@ export function Inspector({
             </Section>
           )}
 
-          <Section title="Exports" tone="exports" icon={<ArrowDownTrayIcon />}>
+          <Section title="Exports" icon={<ArrowDownTrayIcon />}>
             {activeExport && (
               <div className="space-y-2">
                 <div className="flex items-baseline justify-between gap-3">
@@ -567,14 +605,19 @@ export function Inspector({
               </ul>
             ) : null}
             {exports.length > 0 && (
-              <Button variant="ghost" size="sm" onClick={() => onRevealExport?.()}>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="-ml-2.5 text-muted-foreground hover:text-foreground"
+                onClick={() => onRevealExport?.()}
+              >
                 Reveal
               </Button>
             )}
           </Section>
 
           {controls.length > 0 && (
-            <Section title="Controls" tone="controls" icon={<AdjustmentsHorizontalIcon />}>
+            <Section title="Controls" icon={<AdjustmentsHorizontalIcon />}>
               {controls.map((control) => (
                 <ControlRow
                   key={control.id}
@@ -717,7 +760,7 @@ function ControlRow({
               />
             }
           />
-          <PopoverContent align="start" className="w-56 shadow-none">
+          <PopoverContent align="start" className="w-56">
             <input
               aria-label={`${local.label} swatch`}
               type="color"

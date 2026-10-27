@@ -109,11 +109,12 @@ export function ExportDialog({
         >
           {view === "setup" && (
             <div className="space-y-4">
-              <div className="space-y-3">
-                <Label>Format</Label>
+              <div className="space-y-1.5">
                 {exportFormatGroups.map((group) => (
-                  <div key={group.id} className="space-y-2">
-                    <p className="text-sm font-medium text-muted-foreground">{group.label}</p>
+                  <div key={group.id} className="flex items-center gap-3">
+                    <p className="w-14 shrink-0 text-sm font-medium text-muted-foreground">
+                      {group.label}
+                    </p>
                     <ToggleGroup
                       value={group.formats.some((item) => item === format) ? [format] : []}
                       onValueChange={(value) => {
@@ -122,7 +123,7 @@ export function ExportDialog({
                       }}
                       variant="default"
                       spacing={1}
-                      className="grid w-full grid-cols-3"
+                      className="grid min-w-0 flex-1 grid-cols-3"
                       aria-label={`${group.label} export format`}
                     >
                       {group.formats.map((item) => (
@@ -140,15 +141,21 @@ export function ExportDialog({
                     </ToggleGroup>
                   </div>
                 ))}
-                {videoBlock && <p className="text-sm text-muted-foreground">{videoBlock}</p>}
-                {helper && <p className="text-sm text-muted-foreground">{helper}</p>}
+                {videoBlock && (
+                  <p className="pt-1.5 text-sm text-pretty text-muted-foreground">{videoBlock}</p>
+                )}
+                {helper && (
+                  <p className="pt-1.5 text-sm text-pretty text-muted-foreground">{helper}</p>
+                )}
               </div>
               {needsQuality && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="export-quality">Quality</Label>
-                    <span className="font-mono text-sm text-muted-foreground">{quality}</span>
-                  </div>
+                <div className="flex items-center gap-3">
+                  <Label
+                    htmlFor="export-quality"
+                    className="w-14 shrink-0 text-sm font-medium text-muted-foreground"
+                  >
+                    Quality
+                  </Label>
                   <Slider
                     id="export-quality"
                     value={[quality]}
@@ -159,7 +166,11 @@ export function ExportDialog({
                       setQuality(Array.isArray(value) ? Number(value[0]) : quality)
                     }
                     aria-label="Export quality"
+                    className="min-w-0 flex-1"
                   />
+                  <span className="w-8 shrink-0 text-right font-mono text-sm text-muted-foreground">
+                    {quality}
+                  </span>
                 </div>
               )}
               {format === "png" && (

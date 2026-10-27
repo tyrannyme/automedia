@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ChevronRightIcon } from "@heroicons/react/24/outline";
 import type { Composition } from "@shared/schemas.ts";
 import type { RuntimeCatalog } from "../../engine/runtime.ts";
 import { Button } from "@/components/ui/button.tsx";
@@ -18,6 +19,7 @@ import {
   validateCompositionSettings,
 } from "@/lib/composition-settings.ts";
 import { limits } from "@shared/limits.ts";
+import { cn } from "@/lib/utils.ts";
 
 type CompositionSettingsDialogProps = {
   open: boolean;
@@ -76,6 +78,14 @@ export function CompositionSettingsDialog({
     }
   };
 
+  const typed = background.trim();
+  const backgroundSwatch =
+    typed.toLowerCase() === "transparent"
+      ? "transparent"
+      : /^#(?:[\da-f]{3}|[\da-f]{6}|[\da-f]{8})$/i.test(typed)
+        ? typed
+        : null;
+
   const clearError = (field: CompositionSettingsField) => {
     if (!errors[field]) return;
     setErrors((current) => ({ ...current, [field]: undefined }));
@@ -88,9 +98,11 @@ export function CompositionSettingsDialog({
           <DialogTitle>Composition</DialogTitle>
           <DialogDescription>Size, frame rate, and background for this project.</DialogDescription>
         </DialogHeader>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="col-span-2 space-y-1.5">
-            <Label htmlFor="comp-name">Name</Label>
+        <div className="grid grid-cols-3 gap-x-3 gap-y-4">
+          <div className="col-span-3 space-y-1.5">
+            <Label htmlFor="comp-name" className="text-muted-foreground">
+              Name
+            </Label>
             <Input
               id="comp-name"
               value={name}
@@ -109,7 +121,9 @@ export function CompositionSettingsDialog({
             )}
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="comp-width">Width</Label>
+            <Label htmlFor="comp-width" className="text-muted-foreground">
+              Width
+            </Label>
             <Input
               id="comp-width"
               type="number"
@@ -132,7 +146,9 @@ export function CompositionSettingsDialog({
             )}
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="comp-height">Height</Label>
+            <Label htmlFor="comp-height" className="text-muted-foreground">
+              Height
+            </Label>
             <Input
               id="comp-height"
               type="number"
@@ -155,7 +171,9 @@ export function CompositionSettingsDialog({
             )}
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="comp-fps">FPS</Label>
+            <Label htmlFor="comp-fps" className="text-muted-foreground">
+              Frame rate
+            </Label>
             <Input
               id="comp-fps"
               type="number"
@@ -177,19 +195,35 @@ export function CompositionSettingsDialog({
               </p>
             )}
           </div>
-          <div className="col-span-2 space-y-1.5">
-            <Label htmlFor="comp-bg">Background</Label>
-            <Input
-              id="comp-bg"
-              value={background}
-              onChange={(event) => {
-                setBackground(event.target.value);
-                clearError("background");
-              }}
-              aria-invalid={Boolean(errors.background)}
-              aria-describedby={errors.background ? "comp-bg-help comp-bg-error" : "comp-bg-help"}
-              className="bg-background hover:bg-background focus-visible:bg-background"
-            />
+          <div className="col-span-3 space-y-1.5">
+            <Label htmlFor="comp-bg" className="text-muted-foreground">
+              Background
+            </Label>
+            <div className="relative">
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 rounded-[4px] outline -outline-offset-1 outline-foreground/15",
+                  backgroundSwatch === "transparent" && "chequer",
+                )}
+                style={
+                  backgroundSwatch === "transparent"
+                    ? { backgroundSize: "8px 8px" }
+                    : { background: backgroundSwatch ?? "transparent" }
+                }
+              />
+              <Input
+                id="comp-bg"
+                value={background}
+                onChange={(event) => {
+                  setBackground(event.target.value);
+                  clearError("background");
+                }}
+                aria-invalid={Boolean(errors.background)}
+                aria-describedby={errors.background ? "comp-bg-help comp-bg-error" : "comp-bg-help"}
+                className="bg-background pl-9 font-mono hover:bg-background focus-visible:bg-background"
+              />
+            </div>
             <p id="comp-bg-help" className="text-xs text-muted-foreground">
               Hex color, or transparent.
             </p>
@@ -202,11 +236,20 @@ export function CompositionSettingsDialog({
         </div>
         {runtime && (
           <div>
-            <Button variant="ghost" size="sm" onClick={() => setAdvanced((value) => !value)}>
-              {advanced ? "Hide runtime" : "Runtime details"}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="-ml-2.5 text-muted-foreground hover:text-foreground aria-expanded:bg-transparent aria-expanded:hover:bg-surface"
+              aria-expanded={advanced}
+              onClick={() => setAdvanced((value) => !value)}
+            >
+              <ChevronRightIcon
+                className={cn("transition-transform duration-200", advanced && "rotate-90")}
+              />
+              Runtime details
             </Button>
             {advanced && (
-              <dl className="mt-2 space-y-1 font-mono text-xs text-muted-foreground">
+              <dl className="mt-1 space-y-1 font-mono text-xs text-muted-foreground">
                 {Object.entries(runtime).map(([key, value]) => (
                   <div key={key} className="flex justify-between gap-2">
                     <dt>{key}</dt>

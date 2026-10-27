@@ -113,7 +113,7 @@ export function ProjectSidebar({
             <PlusIcon />
             {!collapsed && <span>New</span>}
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-56 shadow-none">
+          <DropdownMenuContent align="start" className="w-56">
             <DropdownMenuGroup>
               <DropdownMenuLabel>Start a project</DropdownMenuLabel>
               <DropdownMenuItem onClick={onImport}>Import project</DropdownMenuItem>
@@ -142,10 +142,7 @@ export function ProjectSidebar({
         )}
       </div>
       <ScrollArea className="min-h-0 flex-1 basis-0">
-        <div className={cn("flex flex-col gap-1.5 p-3 pt-1", collapsed && "items-center px-2")}>
-          {compositions.length === 0 && !collapsed && (
-            <p className="px-2 py-3 text-sm text-muted-foreground">No projects yet.</p>
-          )}
+        <div className={cn("flex flex-col gap-1 p-3 pt-1", collapsed && "items-center px-2")}>
           {compositions.map((item) => {
             const selected = item.id === compositionId;
             const open = openSet.has(item.id);
@@ -154,10 +151,10 @@ export function ProjectSidebar({
                 key={item.id}
                 draggable={!collapsed}
                 className={cn(
-                  "group relative flex w-full min-w-0 items-center rounded-xl transition-colors hover:bg-surface hover:transition-none",
+                  "group relative flex w-full min-w-0 items-center rounded-xl transition-colors duration-200 ease-out hover:bg-surface hover:transition-none",
                   !collapsed && "cursor-grab active:cursor-grabbing",
                   selected && "bg-surface",
-                  collapsed ? "justify-center rounded-lg p-1" : "gap-3 px-2.5 py-2",
+                  collapsed ? "justify-center rounded-xl p-1.5" : "p-1.5",
                   draggingId === item.id && "opacity-40",
                 )}
                 onDragStart={(event) => {
@@ -189,7 +186,7 @@ export function ProjectSidebar({
                 <button
                   type="button"
                   className={cn(
-                    "flex min-w-0 flex-1 items-center gap-2.5 text-left",
+                    "flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     collapsed && "flex-none",
                   )}
                   onClick={() => onSelect(item.id)}
@@ -201,9 +198,11 @@ export function ProjectSidebar({
                     className={collapsed ? "h-9 w-12" : "h-10 w-[4.5rem]"}
                   />
                   {!collapsed && (
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-medium">{item.name}</span>
-                      <span className="block truncate font-mono text-xs text-muted-foreground">
+                    <span className="min-w-0 flex-1 space-y-0.5">
+                      <span className="block truncate text-sm leading-5 font-medium">
+                        {item.name}
+                      </span>
+                      <span className="block truncate font-mono text-xs leading-4 text-muted-foreground">
                         {item.width}×{item.height}
                       </span>
                     </span>
@@ -216,14 +215,14 @@ export function ProjectSidebar({
                         <Button
                           variant="ghost"
                           size="icon-xs"
-                          className="opacity-0 group-hover:opacity-100 aria-expanded:opacity-100"
+                          className="absolute top-1/2 right-2 -translate-y-1/2 bg-surface opacity-0 hover:bg-foreground/10 aria-expanded:bg-foreground/10 group-hover:opacity-100 focus-visible:opacity-100 aria-expanded:opacity-100"
                           aria-label={`${item.name} actions`}
                         />
                       }
                     >
                       <EllipsisHorizontalIcon />
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-48 shadow-none">
+                    <DropdownMenuContent align="end" className="w-48">
                       <DropdownMenuItem onClick={() => onExport(item.id)}>Export</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => onExportPng(item.id)}>
                         Export PNG
@@ -242,7 +241,7 @@ export function ProjectSidebar({
                   </DropdownMenu>
                 )}
                 {collapsed && open && !selected && (
-                  <span className="absolute top-1 right-1 size-1.5 rounded-sm bg-foreground" />
+                  <span className="absolute top-1/2 -left-1 h-3 w-1 -translate-y-1/2 rounded-full bg-muted-foreground" />
                 )}
                 {overId === item.id && draggingId && draggingId !== item.id && (
                   <span

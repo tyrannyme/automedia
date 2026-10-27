@@ -69,6 +69,7 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-surface: var(--surface);
+  --color-scrim: var(--scrim);
   --color-canvas-preview: var(--canvas-preview);
   --color-canvas-code: var(--canvas-code);
   --color-canvas-inspector: var(--canvas-inspector);
@@ -79,18 +80,14 @@
   --color-warning-foreground: var(--warning-foreground);
   --color-chequer-a: var(--chequer-a);
   --color-chequer-b: var(--chequer-b);
-  --color-inspector-head-composition: var(--inspector-head-composition);
-  --color-inspector-head-clip: var(--inspector-head-clip);
-  --color-inspector-head-marker: var(--inspector-head-marker);
-  --color-inspector-head-controls: var(--inspector-head-controls);
-  --color-inspector-head-library: var(--inspector-head-library);
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 20px;
-  --radius-2xl: 24px;
-  --radius-3xl: 24px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-2xl: 16px;
+  --radius-3xl: 20px;
   --radius-4xl: 24px;
+  --shadow-float: var(--float-shadow);
   --font-sans: "Poppins", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "DM Mono", ui-monospace, monospace;
   --font-wordmark: "Nunito", "Poppins", ui-sans-serif, system-ui, sans-serif;
@@ -133,6 +130,9 @@
   --canvas-inspector: light-dark(#e8e8e8, #161616);
   --canvas-rail: light-dark(#f6f6f6, #0a0a0a);
   --canvas-timeline: light-dark(#e0e0e0, #0c0c0c);
+  --scrim: light-dark(rgb(0 0 0 / 0.32), rgb(0 0 0 / 0.64));
+  --float-shadow-color: light-dark(rgb(0 0 0 / 0.2), rgb(0 0 0 / 0.72));
+  --float-shadow: 0 1px 2px rgb(0 0 0 / 0.08), 0 16px 40px -12px var(--float-shadow-color);
   --scrollbar-thumb: color-mix(in srgb, var(--foreground) 26%, transparent);
   --scrollbar-thumb-hover: color-mix(in srgb, var(--foreground) 42%, transparent);
   --scrollbar-track: transparent;
@@ -141,11 +141,6 @@
   --warning-foreground: light-dark(#ffffff, #0a0a0a);
   --chequer-a: light-dark(#e5e5e5, #171717);
   --chequer-b: light-dark(#fafafa, #0a0a0a);
-  --inspector-head-composition: light-dark(#d0d0d0, #2c2c2c);
-  --inspector-head-clip: light-dark(#b4b4b4, #424242);
-  --inspector-head-marker: light-dark(#c2c2c2, #363636);
-  --inspector-head-controls: light-dark(#dedede, #222222);
-  --inspector-head-library: light-dark(#a6a6a6, #505050);
 }
 
 html.light {

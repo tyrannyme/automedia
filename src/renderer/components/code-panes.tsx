@@ -4,7 +4,7 @@ import { blockDir, useStudioStore } from "@/stores/studio.ts";
 import { blockPaths, type BlockPaths } from "@/lib/block-paths.ts";
 import { Alert, AlertDescription } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
-import { Label } from "@/components/ui/label.tsx";
+import { PanePath } from "@/components/pane-path.tsx";
 import { Textarea } from "@/components/ui/textarea.tsx";
 
 const codeFiles: CodeFile[] = ["html", "css", "js"];
@@ -121,13 +121,13 @@ export function CodePanes({ onReload }: { onReload: () => void }) {
       <div className="grid min-h-0 flex-1 grid-cols-1 divide-border min-[1120px]:grid-cols-3 min-[1120px]:divide-x">
         {paths &&
           codeFiles.map((file) => (
-            <div key={file} className="flex min-h-32 min-w-0 flex-1 flex-col gap-1 px-4 py-3">
-              <Label className="font-mono text-xs text-muted-foreground">{paths[file]}</Label>
+            <div key={file} className="group flex min-h-32 min-w-0 flex-1 flex-col gap-1 px-4 py-3">
+              <PanePath path={paths[file]} />
               <Textarea
                 value={file === "html" ? html : file === "css" ? css : js}
                 onChange={(event) => setCode(file, event.target.value)}
                 spellCheck={false}
-                className="-mx-2 min-h-0 w-auto flex-1 resize-none rounded-sm px-2 py-1 font-mono text-sm leading-[1.45] hover:bg-transparent focus-visible:bg-transparent"
+                className="-mx-2 min-h-0 w-auto flex-1 resize-none rounded-sm px-2 py-1 font-mono text-sm leading-[1.45] hover:bg-transparent focus-visible:bg-transparent focus-visible:ring-0"
               />
             </div>
           ))}

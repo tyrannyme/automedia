@@ -9,6 +9,7 @@ import {
   rippleDelete,
   rowIndexAtOffset,
   rowOffset,
+  formatRulerTime,
   rulerTicks,
   secondsFromX,
   activeSnap,
@@ -131,5 +132,13 @@ describe("timeline math", () => {
     const ticks = rulerTicks(2, 100, 200, 0);
     expect(ticks[0]?.time).toBe(0);
     expect(ticks.at(-1)?.time).toBeGreaterThanOrEqual(2);
+  });
+
+  it("labels ruler ticks with the precision of their step", () => {
+    expect(formatRulerTime(0, 1)).toBe("0s");
+    expect(formatRulerTime(2, 1)).toBe("2s");
+    expect(formatRulerTime(1.5, 0.5)).toBe("1.5s");
+    expect(formatRulerTime(0.04, 0.04)).toBe("0.04s");
+    expect(formatRulerTime(75, 15)).toBe("1:15");
   });
 });

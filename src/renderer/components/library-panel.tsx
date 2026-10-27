@@ -32,7 +32,7 @@ function AssetThumb({ compositionId, asset }: { compositionId: string; asset: st
     return <img src={src} alt="" className="size-full object-cover" />;
   }
   return (
-    <div className="flex size-full items-center justify-center bg-surface text-muted-foreground">
+    <div className="flex size-full items-center justify-center bg-canvas-preview text-muted-foreground">
       <SpeakerWaveIcon className="size-5" />
     </div>
   );
@@ -158,25 +158,25 @@ export function LibraryPanel({ composition, files, collapsed, onTrack }: Library
           {assets.length === 0 ? (
             <p className="px-1 py-3 text-sm text-muted-foreground">Import media to use it here.</p>
           ) : (
-            <ul className="grid grid-cols-2 gap-2">
+            <ul className="-mx-1 grid grid-cols-2 gap-1">
               {assets.map((file) => (
                 <li key={file}>
                   <button
                     type="button"
                     draggable
                     className={cn(
-                      "flex w-full cursor-grab flex-col rounded-md bg-surface text-left hover:bg-muted active:cursor-grabbing",
-                      selected === file && "ring-2 ring-inset ring-ring",
+                      "flex w-full cursor-grab flex-col gap-1.5 rounded-lg p-1 text-left transition-colors duration-200 ease-out outline-none hover:bg-surface hover:transition-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing",
+                      selected === file && "bg-surface",
                     )}
                     aria-label={file}
                     aria-pressed={selected === file}
                     onClick={() => setSelected(file)}
                     onDragStart={(event) => beginAssetDrag(event, file)}
                   >
-                    <span className="aspect-video w-full overflow-hidden rounded-t-md bg-background">
+                    <span className="aspect-video w-full overflow-hidden rounded-md bg-surface outline -outline-offset-1 outline-foreground/10">
                       <AssetThumb compositionId={composition.id} asset={file} />
                     </span>
-                    <span className="truncate px-1.5 py-1 font-mono text-xs text-muted-foreground">
+                    <span className="truncate px-1 pb-0.5 text-xs text-muted-foreground">
                       {file}
                     </span>
                   </button>

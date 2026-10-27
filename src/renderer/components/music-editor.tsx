@@ -3,7 +3,7 @@ import { musicAsset, useStudioStore } from "@/stores/studio.ts";
 import { musicPatternPath } from "@shared/music-paths.ts";
 import { Alert, AlertDescription } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
-import { Label } from "@/components/ui/label.tsx";
+import { PanePath } from "@/components/pane-path.tsx";
 import { Textarea } from "@/components/ui/textarea.tsx";
 
 type CodedError = Error & { code?: string };
@@ -98,13 +98,13 @@ export function MusicEditor({ onReload }: { onReload: () => void }) {
         </p>
       )}
       {path && (
-        <div className="flex min-h-0 flex-1 flex-col gap-1 px-4 py-3">
-          <Label className="font-mono text-xs text-muted-foreground">{path}</Label>
+        <div className="group flex min-h-0 flex-1 flex-col gap-1 px-4 py-3">
+          <PanePath path={path} />
           <Textarea
             value={pattern}
             onChange={(event) => setPattern(event.target.value)}
             spellCheck={false}
-            className="-mx-2 min-h-0 w-auto flex-1 resize-none rounded-sm px-2 py-1 font-mono text-sm leading-[1.45] hover:bg-transparent focus-visible:bg-transparent"
+            className="-mx-2 min-h-0 w-auto flex-1 resize-none rounded-sm px-2 py-1 font-mono text-sm leading-[1.45] hover:bg-transparent focus-visible:bg-transparent focus-visible:ring-0"
           />
         </div>
       )}

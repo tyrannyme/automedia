@@ -165,8 +165,8 @@ export function PreviewStage({ composition, media, controls, onTime }: PreviewSt
     const element = stageRef.current;
     if (!element) return;
     const resize = () => {
-      const width = Math.max(1, element.clientWidth - 16);
-      const height = Math.max(1, element.clientHeight - 16);
+      const width = Math.max(1, element.clientWidth - 48);
+      const height = Math.max(1, element.clientHeight - 48);
       setScale(Math.min(width / composition.width, height / composition.height));
     };
     resize();

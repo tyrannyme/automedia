@@ -236,6 +236,17 @@ export function rulerTicks(
   return ticks;
 }
 
+/** Ruler label for a tick, with as many decimals as the tick step needs. */
+export function formatRulerTime(time: number, step: number): string {
+  if (time >= 60 && step >= 1) {
+    const minutes = Math.floor(time / 60);
+    const seconds = Math.round(time - minutes * 60);
+    return `${minutes}:${String(seconds).padStart(2, "0")}`;
+  }
+  const decimals = step >= 1 ? 0 : step >= 0.1 ? 1 : 2;
+  return `${time.toFixed(decimals)}s`;
+}
+
 function niceStep(raw: number): number {
   const steps = [0.04, 0.1, 0.2, 0.5, 1, 2, 5, 10, 15, 30, 60];
   for (const step of steps) {

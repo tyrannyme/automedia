@@ -25,11 +25,7 @@ colors:
   on-warning: "#0A0A0A"
   chequer-a: "#171717"
   chequer-b: "#0A0A0A"
-  inspector-head-composition: "#2C2C2C"
-  inspector-head-clip: "#424242"
-  inspector-head-marker: "#363636"
-  inspector-head-controls: "#222222"
-  inspector-head-library: "#505050"
+  scrim: "#000000A3"
   light-primary: "#171717"
   light-on-primary: "#FAFAFA"
   light-background: "#FFFFFF"
@@ -52,11 +48,7 @@ colors:
   light-on-warning: "#FFFFFF"
   light-chequer-a: "#E5E5E5"
   light-chequer-b: "#FAFAFA"
-  light-inspector-head-composition: "#D0D0D0"
-  light-inspector-head-clip: "#B4B4B4"
-  light-inspector-head-marker: "#C2C2C2"
-  light-inspector-head-controls: "#DEDEDE"
-  light-inspector-head-library: "#A6A6A6"
+  light-scrim: "#00000052"
 typography:
   wordmark:
     fontFamily: Nunito
@@ -110,9 +102,12 @@ typography:
     lineHeight: 1.45
 rounded:
   none: 0px
-  sm: 8px
-  md: 12px
-  lg: 16px
+  xs: 4px
+  sm: 6px
+  md: 8px
+  lg: 10px
+  xl: 14px
+  dialog: 16px
   shell: 24px
 spacing:
   xs: 4px
@@ -130,7 +125,7 @@ components:
     backgroundColor: "{colors.primary}"
     textColor: "{colors.on-primary}"
     typography: "{typography.control}"
-    rounded: "{rounded.md}"
+    rounded: "{rounded.lg}"
     height: 36px
     padding: 8px
   button-primary-hover:
@@ -140,7 +135,7 @@ components:
     backgroundColor: transparent
     textColor: "{colors.foreground}"
     typography: "{typography.control}"
-    rounded: "{rounded.md}"
+    rounded: "{rounded.lg}"
     height: 36px
     padding: 8px
   button-ghost-hover:
@@ -150,7 +145,7 @@ components:
     backgroundColor: transparent
     textColor: "{colors.destructive}"
     typography: "{typography.control}"
-    rounded: "{rounded.md}"
+    rounded: "{rounded.lg}"
     height: 36px
     padding: 8px
   button-destructive-hover:
@@ -230,7 +225,7 @@ Neutrals are chroma-zero gray. Hue is irrelevant because chroma is 0. This is gr
 - **Destructive (#F87171 / #DC2626):** Errors, invalid validate results, delete. Text, icon, or border. Not a red banner and not a timeline color.
 - **Warning (#FACC15 / #CA8A04):** Validate warnings only. Yellow stays because it means warning, not because the palette is warm.
 - **Chequer (#171717 + #0A0A0A / #E5E5E5 + #FAFAFA):** 8px squares behind the composition iframe when the manifest background is transparent. Two near-neutrals from this palette. No hue.
-- **Inspector section heads:** Chroma-zero bars at different values so groups do not blend. Dark, darkest to lightest: controls `#222222`, composition `#2C2C2C`, marker `#363636`, clip `#424242`, library `#505050`. Light, lightest to darkest: controls `#DEDEDE`, composition `#D0D0D0`, marker `#C2C2C2`, clip `#B4B4B4`, library `#A6A6A6`. Headers only. No hue.
+- **Scrim (black 64% / black 32%):** The modal dim. Always black, in both appearances, so a dialog darkens the studio instead of washing it gray.
 
 Playing is the needle moving, not a colored play button. Export progress is a determinate bar in background/surface/foreground. Mute is opacity plus the icon.
 
@@ -264,13 +259,13 @@ Do not wrap every section, metric, or comparison in a card. Avoid nested panels 
 
 Hairlines that still have a job: a resize handle tick, the 1px frame around the composition, the timeline ruler and label split, and one edge on a floating overlay (dialog, menu, select popup). Nothing else. No titlebar rule. No box around the rail or the workspace.
 
-**Project sidebar.** A rounded nest on the shell, `canvas-rail`, same `rounded.shell` as the workspace. Chat-list rhythm: thumbnail, name, quiet meta. Selected row is `surface` with a soft corner. New and Import project live here. A chevron retracts the rail to thumbnails; the resize handle still collapses it too. Drag a project row to reorder the list; that order is persisted. Multiple projects stay loaded; switching restores playhead, selection, and code dirty state. Padding inside the rail is 12px. Rows need air. The library sits in the leftover space under the project list: a thumbnail grid of imported assets, not a text list in the inspector. Video, audio, and still images (png, jpg, gif, webp, svg) belong here. Image tiles show the picture. Click selects. Drag a library tile onto the timeline to add it at that time and lane. Add remains as an explicit action. A new clip scrolls into view on the timeline. The project row menu is Export, Export PNG, Duplicate, Save project, and Move to trash. Import project lives in the New menu. Not Open. Not Close. Save project writes a `.automedia` snapshot. Import always creates a new library item.
+**Project sidebar.** A rounded nest on the shell, `canvas-rail`, same `rounded.shell` as the workspace. Chat-list rhythm: thumbnail, name, quiet meta (size in DM Mono). Selected row is `surface` with a 14px corner around a 72×40 thumbnail with an 8px corner. Thumbnails, library tiles, and other picture previews wear a 1px inset outline at `foreground/10` so a dark composition still has an edge on the dark rail. The row's ⋯ menu floats over the right end of the row on hover or focus; it does not reserve width, so names get the whole line. In the retracted rail, a project that is loaded but not selected shows a small muted bar on its left edge. New and Import project live here. A chevron retracts the rail to thumbnails; the resize handle still collapses it too. Drag a project row to reorder the list; that order is persisted. Multiple projects stay loaded; switching restores playhead, selection, and code dirty state. Padding inside the rail is 12px. Rows need air. The library sits in the leftover space under the project list: a thumbnail grid of imported assets, not a text list in the inspector. Video, audio, and still images (png, jpg, gif, webp, svg) belong here. Image tiles show the picture. Click selects. Drag a library tile onto the timeline to add it at that time and lane. Add remains as an explicit action. A new clip scrolls into view on the timeline. The project row menu is Export, Export PNG, Duplicate, Save project, and Move to trash. Import project lives in the New menu. Not Open. Not Close. Save project writes a `.automedia` snapshot. Import always creates a new library item.
 
-**Titlebar.** One 44px row on the shell. Mark, Automedia, Export. No overflow menu. When an update is found, one ghost icon button sits left of Export. No label, no badge, no dot. Download arrow until clicked, then the button's own rounded outline fills as a `surface`/`foreground` progress ring, then a restart arrow that installs. Hover shows the version and the release's change list in the tooltip. No update, no button. Composition settings live on the timeline. Trash lives on the project row menu. While a block is in code mode, the titlebar shows `Editing {name}` and a filled **Done** next to Export; Export drops to ghost so Done is the only primary. While an export is running, the same Export control reads Exporting and reopens the dialog. It does not grow a progress bar, a popover, or a second action. Caption inset is the left padding of this bar. No second toolbar. No Validate or Activity. No Preview / Code segmented control.
+**Titlebar.** One 44px row on the shell. Mark, Automedia, Export. The mark is the inline viewfinder SVG in `currentColor`, 18px, so it follows appearance; never the app-icon PNG. No overflow menu. When an update is found, one ghost icon button sits left of Export. No label, no badge, no dot. Download arrow until clicked, then the button's own rounded outline fills as a `surface`/`foreground` progress ring, then a restart arrow that installs. Hover shows the version and the release's change list in the tooltip. No update, no button. Composition settings live on the timeline. Trash lives on the project row menu. While a block is in code mode, the titlebar shows `Editing {name}` and a filled **Done** next to Export; Export drops to ghost so Done is the only primary. While an export is running, the same Export control reads Exporting and reopens the dialog. It does not grow a progress bar, a popover, or a second action. Caption inset is the left padding of this bar. No second toolbar. No Validate or Activity. No Preview / Code segmented control.
 
-**Preview and timeline.** Stable spatial anchors inside the workspace. Preview letterbox sits on `canvas-preview`. Timeline and transport sit on `canvas-timeline`. The letterboxed composition is exact pixel size, scaled to fit, empty gutter around it. Do not pad the frame like a card. Transport is a complete set sitting on the timeline, not a single play button under the picture.
+**Preview and timeline.** Stable spatial anchors inside the workspace. Preview letterbox sits on `canvas-preview`. Timeline and transport sit on `canvas-timeline`. The letterboxed composition is exact pixel size, scaled to fit, with at least a 24px empty gutter on every side. Do not pad the frame like a card. Transport is a complete set sitting on the timeline, not a single play button under the picture.
 
-**Inspector.** `canvas-inspector`, still inside the workspace nest. Contextual to the current selection. Composition settings open a focused dialog for name, size, fps, and background. Duration is not a setting. Do not park a schema form in the inspector permanently. Do not stack accordion sections for composition, tracks, markers, runtime, and assets. Each section heading is a 36px rounded bar with its own gray fill so groups do not blend. Values are stepped, chroma zero. No hue on headers. Field labels carry a 16px Heroicon. Space between groups is 32px. Advanced stays one disclosure.
+**Inspector.** `canvas-inspector`, still inside the workspace nest. Contextual to the current selection. Composition settings open a focused dialog for name, size, fps, and background. Duration is not a setting. Do not park a schema form in the inspector permanently. Do not stack accordion sections for composition, tracks, markers, runtime, and assets. Section headings are type, not bars: a 32px row with a muted 16px Heroicon and the name in Poppins 14/500 foreground. Space between groups (32px) is what separates them. Composition facts (size, frame rate, length, background) read as label/value rows in the same 112px label column as fields, with values in DM Mono and the background as a small swatch. Field labels carry a 16px Heroicon. Advanced stays one disclosure. Secondary actions in the inspector (add block, add music, add marker, reveal) are muted ghost type that lifts to foreground on hover.
 
 **Export.** One trigger. A focused dialog. That dialog is the whole workflow: format, quality when it applies, progress, cancel, reveal, save copy. It stays open after start. Closing it does not cancel the job. The titlebar button is how you come back. Progress is a determinate `surface`/`foreground` bar in the dialog, and again in the inspector while that composition is exporting. Finished files list only in the inspector under Exports, with the format as quiet type. Jobs queue; one runs at a time. The dialog names the wait.
 
@@ -278,19 +273,21 @@ Hairlines that still have a job: a resize handle tick, the 1px frame around the 
 
 Diagnose quantity separately from intensity. If the studio feels busy, remove, combine, or reorder chrome. If it feels loud, you added a surface, a color, or a motion the picture did not need.
 
-8px chequer only behind the iframe, and only to read alpha. Letterbox gutter stays flat. No chequer on the timeline, inspector, sidebar, or titlebar.
+8px chequer only behind the iframe, and only to read alpha. The one other chequer is the tiny background swatch that means transparent. Letterbox gutter stays flat. No chequer on the timeline, inspector, sidebar, or titlebar.
 
 ## Elevation & Depth
 
-None. No shadows, glass, blur, glow, frost, or fake depth. Hierarchy is solid color, type, space, nested geometry, and motion.
+Regions have none. No shadows, glass, blur, glow, frost, or fake depth on the shell, the nests, rows, clips, or controls. Hierarchy there is solid color, type, space, nested geometry, and motion.
+
+Floating layers are the one exception. Menus, selects, popovers, and dialogs lift off the studio with a hairline `border` and one soft shadow (`--float-shadow`: a 1px contact shadow plus a 40px drop at 72% black in dark, 20% in light). It says "this is on top" without a glow.
 
 The shell is the darkest fill. Nested regions lift by value and by rounding. A hairline or a surface lift. Not both stacked into a floating panel.
 
-Modal overlay is a flat `foreground/40` dim. No backdrop blur.
+Modal overlay is a flat `scrim`: black at 64% in dark, 32% in light. No backdrop blur.
 
 ## Shapes
 
-12px default (`rounded.md`). 8px on dense controls (`rounded.sm`). 16px on dialogs and posters (`rounded.lg`). Nested rail and workspace use `rounded.shell`, 20px below 1100px and 24px from there. Checkboxes are a 16px box with a 4px corner so they stay square. Radios are actually round. No `rounded-full` on buttons, badges, inputs, or chips.
+Corners follow control height so nothing reads as a pill: 10px on 36px buttons, inputs, and selects (`rounded.lg`), 8px on 32px controls, clips, and menu items (`rounded.md`), 6px on 28px controls and thumbnails' inner art (`rounded.sm`). Menus and popovers are 14px (`rounded.xl`) so a 4px-padded 8px item sits concentric inside. Dialogs are 16px. Nested rail and workspace use `rounded.shell`, 20px below 1100px and 24px from there. Nest something inside a padded container and the outer radius is the inner radius plus the padding: a sidebar row is 14px around an 8px thumbnail with 6px padding. Checkboxes are a 16px box with a 4px corner. Radios are actually round. No `rounded-full` on buttons, badges, inputs, or chips; the only round shapes are slider thumbs, trim grips, and the collapsed rail's open marker.
 
 Soft corners on sidebar rows, timeline clips, dialogs, and inputs. The mark is chamfered. No pills.
 
@@ -298,11 +295,11 @@ Soft corners on sidebar rows, timeline clips, dialogs, and inputs. The mark is c
 
 Use shadcn. Restyle it to these tokens. Do not fork a second button.
 
-**Buttons.** Primary is inverted neutrals: near-white on dark, near-black on light. Ghost for everything else in the header. Destructive is ghost with destructive text. Height 36px. Hover fill snaps in, eases out. See motion below. No colored primary. No sky CTA. No outline variant in the studio. A ghost action is type, then a surface on hover.
+**Buttons.** Primary is inverted neutrals: near-white on dark, near-black on light. Ghost for everything else in the header. Destructive is ghost with destructive text. Height 36px; the titlebar uses the 32px size. Hover fill snaps in, eases out. Press scales to 0.96 so a click is felt (never below 0.95; menu triggers skip it). See motion below. No colored primary. No sky CTA. No outline variant in the studio. A ghost action is type, then a surface on hover.
 
 **Inputs and selects.** Flush. No idle stroke. Inspector values sit on `surface` so the field is the object, not the label. Dialog fields may sit on `background` so they read on `popover`. Focus is `ring`, 2px, no glow. Checkboxes keep a quiet edge because an empty box has to exist. Slider thumbs are a filled `foreground` dot, not a ringed knob.
 
-**Export.** One button. The workflow is a dialog on `popover` with a hairline `border`. Formats sit in three quiet rows: Video (MP4, WebM), Still (PNG, GIF, WebP), Audio (MP3, WAV, OGG). Row names are Poppins 14/500 muted. Format names in Poppins. Selected format is an inverted fill, not a segmented tray of boxes. Do not badge formats as pills. Do not put all eight names on one wrapping row. Do not split the button into Export plus a chevron. Do not move progress into a titlebar meter or a second popover. Quality applies to MP4, WebM, WebP, MP3, and OGG. WAV is lossless. PNG stills take the playhead. Audio export needs an unmuted audio, video, or music track and does not care about odd frame size. Odd MP4/WebM still need even width and height.
+**Export.** One button. The workflow is a dialog on `popover` with a hairline `border`. Formats sit in three quiet rows: Video (MP4, WebM), Still (PNG, GIF, WebP), Audio (MP3, WAV, OGG). Row names are Poppins 14/500 muted in a 56px left column, with the formats inline on a three-column grid to their right. Quality uses the same column: label, slider, tabular readout. No extra "Format" heading. Format names in Poppins. Selected format is an inverted fill, not a segmented tray of boxes. Do not badge formats as pills. Do not put all eight names on one wrapping row. Do not split the button into Export plus a chevron. Do not move progress into a titlebar meter or a second popover. Quality applies to MP4, WebM, WebP, MP3, and OGG. WAV is lossless. PNG stills take the playhead. Audio export needs an unmuted audio, video, or music track and does not care about odd frame size. Odd MP4/WebM still need even width and height.
 
 **Titlebar.** 44px window chrome on the shell. Same fill as `background`. Window drag region as already implemented. Native caption buttons sit here. The workspace toolbar is a second 44px row inside the nest, with the same control language and no bottom hairline.
 
@@ -310,25 +307,29 @@ Use shadcn. Restyle it to these tokens. Do not fork a second button.
 
 **Playhead.** 2px `playhead` line through the lanes, small cap in the ruler. No easing while it tracks time. The cap and the ruler are easy to hit.
 
-**Transport clock.** Playhead timecode and frame index sit after the transport buttons. Do not park composition length there; the transport is already full at 1280. Add music sits next to add block. It is another icon action, not a second primary. The transport stays one 56px row. Playback and the clock never shrink. When the nest cannot hold the full 36px tool cluster, fold the lowest-priority tools into one ghost More menu. Do not wrap the row. Do not shrink icons below 36px. Zoom out, zoom in, and Fit do not live on the transport. The More menu is overflow for secondary tools, not a home for zoom.
+**Transport clock.** Playhead timecode (DM Mono 14) and frame index (DM Mono 13, muted) sit stacked after the transport buttons. Stacked, not one line: at 1280 the row has about 60px to spare, and a single line pushes split and delete into More. Do not park composition length there; the transport is already full at 1280. Add music sits next to add block. It is another icon action, not a second primary. The transport stays one 56px row. Playback and the clock never shrink. When the nest cannot hold the full 36px tool cluster, fold the lowest-priority tools into one ghost More menu. Do not wrap the row. Do not shrink icons below 36px. Zoom out, zoom in, and Fit do not live on the transport. The More menu is overflow for secondary tools, not a home for zoom.
 
 **Composition length.** The unused cell above the lane names, left of the time ruler, shows length in seconds and a Loop or Open seam readout. It stays visible when a clip is selected. Loop means the first displayed frame equals the last displayed frame. That is a seam check, not the playback loop button. No hue. Loop is foreground. Open is muted. The word is the indicator; do not add a second loop icon.
 
 **Ruler zoom.** Zoom out, zoom in, and Fit sit on the right of the time ruler, not on the transport. The cluster is pinned (`z-30`, `h-7`, `bg-canvas-timeline`, 1px `border` on the left, `6px`/`4px` padding, `2px` gap). It does not scroll with ticks and stays visible whenever the timeline is expanded. Buttons use `icon-xs` (28px) and the same ghost treatment as transport tools. Fit is the compact `Fit` label (`xs`), not an icon. Pointer events on the cluster do not seek. The playhead can pass under the cluster; zoom stays hit-able. Mouse-wheel zoom (`ctrl` / `meta` / `alt` + wheel on the timeline surface) remains available.
 
+**Ruler.** Labels are DM Mono, muted, with only the precision the tick step needs (`0s 1s 2s`, `0.5s`, `0.04s`, `1:15` past a minute). Each labelled tick has a 8px mark and four 4px minor marks between, in `muted-foreground` at 50% and 25%. Past the composition's out point, ruler and lanes are dimmed with `background/20` so the end is visible without a line.
+
 **Snap guide.** When a clip edge, clip move, or marker locks to a snap target, a 1px `foreground` line appears through the ruler and lanes at that time. It is not the playhead. It is not eased. It vanishes when the drag ends.
 
-**Timeline lanes.** Same neutrals. Video, audio, image, block, and music share one lane height. Heroicon at the lane head: speaker for audio, note for music, photo for image, play for video and visual blocks. Selected lane is `surface`, not a fill color. Mute lowers opacity. Uncolored clips are filled rounded rects: `surface` at rest, inverted `primary` when selected. A block or music clip may carry a user-assigned swatch; that color is a clip label, not chrome. Do not invent default kind colors (no audio-green, no video-blue, no music-purple). No stroke around a clip. The time ruler is pinned. It scrolls horizontally with the clips and never vertically. Clicking a lane selects or moves a clip; it does not seek. Only the ruler and the playhead cap seek. Lanes have a hairline and a 4px trough between them, plus a quiet alternate fill, so rows read as tracks. Drag a lane head to reorder tracks. Clip drag is time only. Composition length is the last clip out point. An empty timeline is 3 seconds. A new block, music, or image clip is 3 seconds, not a fill of the composition. Image stills stay muted and can be stretched past any source length. Music is unmuted so the Strudel pattern can be heard; visual blocks stay muted. Pulling or deleting the last clip shrinks the length. The field keeps empty time after the last clip so you can drop past the end. Transport includes add marker, add block, add music, and composition settings. Zoom out, zoom in, and Fit live on the ruler. Icon actions carry a tooltip. A new block or music clip starts at the playhead, or at the click when added from the timeline menu. Delete removes the selected clip. Right-clicking a clip selects it and offers edit code on a visual block or edit pattern on music, plus split and delete. Right-clicking empty lane space offers add block, add music, and add marker. Hover and selection fills on lanes snap in; they do not fade in. One hairline under the ruler, and one between the lane labels and the clip field.
+**Timeline lanes.** Same neutrals. Video, audio, image, block, and music share one lane height. Heroicon at the lane head: speaker for audio, note for music, photo for image, play for video and visual blocks. Selected lane is `surface`, not a fill color. Mute lowers opacity. Uncolored clips are filled rounded rects inset 3px in their lane: `surface` at rest, inverted `primary` when selected. A block or music clip carries a swatch from the clip palette; that color is a clip label, not chrome, and a selected swatch clip gets a 2px inset `foreground` ring because it cannot invert. Trim grips are hidden at rest: a 3×14px rounded bar inside each end appears on hover and stays while selected. When a composition has fewer than four lanes, one muted line under the last lane says what the empty field does (drop library media, right-click to add). Do not invent default kind colors (no audio-green, no video-blue, no music-purple). No stroke around a clip. The time ruler is pinned. It scrolls horizontally with the clips and never vertically. Clicking a lane selects or moves a clip; it does not seek. Only the ruler and the playhead cap seek. Lanes have a hairline and a 4px trough between them, plus a quiet alternate fill, so rows read as tracks. Drag a lane head to reorder tracks. Clip drag is time only. Composition length is the last clip out point. An empty timeline is 3 seconds. A new block, music, or image clip is 3 seconds, not a fill of the composition. Image stills stay muted and can be stretched past any source length. Music is unmuted so the Strudel pattern can be heard; visual blocks stay muted. Pulling or deleting the last clip shrinks the length. The field keeps empty time after the last clip so you can drop past the end. Transport includes add marker, add block, add music, and composition settings. Zoom out, zoom in, and Fit live on the ruler. Icon actions carry a tooltip. A new block or music clip starts at the playhead, or at the click when added from the timeline menu. Delete removes the selected clip. Right-clicking a clip selects it and offers edit code on a visual block or edit pattern on music, plus split and delete. Right-clicking empty lane space offers add block, add music, and add marker. Hover and selection fills on lanes snap in; they do not fade in. One hairline under the ruler, and one between the lane labels and the clip field.
 
 **Scrollbars.** Quiet chrome. Thin pill thumbs from `foreground` at ~26% on a transparent track. Native overflow (timeline, menus) uses WebKit thumbs that stay invisible until hover. `ScrollArea` thumbs fade in on hover or while scrolling. Never leave the platform default bar in the studio.
 
-**Inspector.** Rows, not cards. Selected row is `surface`. Labels 13px Poppins 500. Values 13px 400. Icons sit with the label, not as decoration. No divider under the inspector title. Section headings are gray bars at different values (see tokens below). Activity log is the same type, instant or a 100ms fade-out. No incoming stagger. Advanced properties sit behind one disclosure, not a stack of accordions. Range values show a tabular readout so a slider move is obvious.
+**Inspector.** Rows, not cards. Selected row is `surface`. Labels 13px Poppins 500. Values 13px 400. Icons sit with the label, not as decoration. No divider under the inspector title. Section headings are quiet type with a muted icon (see Layout). Activity log is the same type, instant or a 100ms fade-out. No incoming stagger. Advanced properties sit behind one disclosure, not a stack of accordions. Range values show a tabular readout so a slider move is obvious.
 
-**Code mode.** A focused dialog over the studio. Preview stays. Three panes, DM Mono 13px, on `canvas-code`. A column hairline if the split needs it. No boxed editors. Typing does not animate. Visual blocks only. Music never opens this dialog.
+**Code mode.** A focused dialog over the studio. Preview stays. Three panes, DM Mono 13px, on `canvas-code`. A column hairline if the split needs it. No boxed editors and no focus ring around an editor: the caret is the focus, and the pane caption (folder muted, file name brighter) turns foreground while you type in it. Typing does not animate. Visual blocks only. Music never opens this dialog.
 
 **Music mode.** A focused dialog over the studio. Preview stays. One pane for the authored Strudel pattern, DM Mono 13px, on `canvas-code`. No HTML or CSS panes. The transport, mute, volume, and meter stay managed. The inspector action is Edit pattern. Right-click offers Edit pattern on a music clip. Typing does not animate.
 
-**Empty state.** Heroicon or the app mark. One Nunito title. One Poppins line of muted instruction. No mascot.
+**Empty state.** The app mark on a 56px `surface` tile. One Nunito title. One Poppins line of muted instruction that names the three ways in (blank, an example from New, an agent over MCP). One primary action. It arrives with a 300ms fade and 8px rise. No mascot.
+
+**Composition settings.** A focused dialog. Name on its own row; width, height, and frame rate share one row; background is a DM Mono field with a live swatch at its left (chequer for transparent). Labels are muted. Runtime details is one chevron disclosure.
 
 **Overlay controls.** Range, color, toggle, select. 36px. They write CSS variables into the composition. They are chrome, not part of the picture.
 
@@ -355,9 +356,9 @@ transition-colors hover:bg-surface hover:transition-none
 - Do not use cream, paper, tan, warm gray, navy, slate-blue, or Premiere orange anywhere in the chrome.
 - Do not use eyebrow labels, pill badges, pill CTAs, or `rounded-full` on actions.
 - Do not wrap the studio in cards. Do not nest panels of panels. Do not stroke idle inputs, selects, clips, sidebar rows, or toolbar actions. Do not use one background token for every region.
-- Do not replace a removed border with a shadow, glow, or extra rounded tray.
+- Do not replace a removed border with a shadow, glow, or extra rounded tray. The float shadow belongs to menus, popovers, and dialogs only.
 - Do not use decorative grids, gradients, gradient text, glows, blobs, stripes, textures, paper, glass, colored side rails, ornamental shadows, or fake depth. A gradient is allowed only as a labelled continuous data scale. v1 chrome has none.
-- Do not put a chequer anywhere except behind the composition iframe.
+- Do not put a chequer anywhere except behind the composition iframe and inside a background swatch that means transparent.
 - Do not paint audio green and video blue. Lanes share neutrals.
 - Do not restyle authored compositions from this file.
 - Do not add a mascot, a grid background, or a hero wash to the empty state.

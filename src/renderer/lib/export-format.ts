@@ -14,6 +14,7 @@ export const exportFormatGroups = [
 export function exportFormatLabel(format: ExportFormat): string {
   if (format === "mp4") return "MP4";
   if (format === "webm") return "WebM";
+  if (format === "webp") return "WebP";
   return format.toUpperCase();
 }
 

@@ -51,6 +51,7 @@ import {
   rippleDelete,
   rowIndexAtOffset,
   rowOffset,
+  formatRulerTime,
   rulerTicks,
   secondsFromX,
   snapTime,
@@ -167,6 +168,26 @@ function clipSurfaceStyle(
   return style;
 }
 
+/** Trim grip: hidden at rest so clips read as solid blocks, shown on hover or selection. */
+function ClipGrip({ color, selected }: { color: string | undefined; selected: boolean }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        "h-3.5 w-[3px] rounded-full opacity-0 transition-opacity duration-150 group-hover/clip:opacity-100 group-hover/clip:transition-none",
+        selected && "opacity-100",
+        color
+          ? clipInk(color) === "#F5F5F5"
+            ? "bg-white/70"
+            : "bg-black/50"
+          : selected
+            ? "bg-primary-foreground/60"
+            : "bg-foreground/50",
+      )}
+    />
+  );
+}
+
 function TimelineClipSurface({
   track,
   selected,
@@ -199,17 +220,18 @@ function TimelineClipSurface({
           <div
             data-clip=""
             className={cn(
-              "absolute rounded-md text-left text-sm",
+              "group/clip absolute rounded-md text-left text-sm",
               !track.color &&
                 (selected
                   ? "bg-primary text-primary-foreground"
                   : "bg-surface text-muted-foreground"),
+              track.color && selected && "shadow-[inset_0_0_0_2px_var(--foreground)]",
               isAudibleKind(track.kind) && track.mute && "opacity-50",
             )}
             style={{
               ...clipSurfaceStyle(track, selected, pixelsPerSecond),
-              top: 4,
-              height: laneHeight(track.kind) - 2,
+              top: 3,
+              height: laneHeight(track.kind) - 4,
             }}
             onContextMenu={(event) => {
               event.stopPropagation();
@@ -222,19 +244,14 @@ function TimelineClipSurface({
           type="button"
           data-edge=""
           aria-label={`Shorten start of ${clipLabel(track)}`}
-          className={cn(
-            "absolute inset-y-0 left-0 z-10 w-2.5 cursor-ew-resize rounded-l-md",
-            track.color
-              ? clipInk(track.color) === "#F5F5F5"
-                ? "bg-white/35 hover:bg-white/55"
-                : "bg-black/25 hover:bg-black/45"
-              : "bg-foreground/35 hover:bg-foreground/60",
-          )}
+          className="absolute inset-y-0 left-0 z-10 flex w-2.5 cursor-ew-resize items-center justify-center"
           onPointerDown={(event) => onBeginDrag(event, track, "trim-start")}
-        />
+        >
+          <ClipGrip color={track.color} selected={selected} />
+        </button>
         <button
           type="button"
-          className="absolute inset-0 truncate px-3 text-left"
+          className="absolute inset-0 truncate px-3 text-left leading-none"
           onPointerDown={(event) => onBeginDrag(event, track, "move")}
           onDoubleClick={() => {
             onSelect(track.id);
@@ -248,16 +265,11 @@ function TimelineClipSurface({
           type="button"
           data-edge=""
           aria-label={`Change length of ${clipLabel(track)}`}
-          className={cn(
-            "absolute inset-y-0 right-0 z-10 w-2.5 cursor-ew-resize rounded-r-md",
-            track.color
-              ? clipInk(track.color) === "#F5F5F5"
-                ? "bg-white/35 hover:bg-white/55"
-                : "bg-black/25 hover:bg-black/45"
-              : "bg-foreground/35 hover:bg-foreground/60",
-          )}
+          className="absolute inset-y-0 right-0 z-10 flex w-2.5 cursor-ew-resize items-center justify-center"
           onPointerDown={(event) => onBeginDrag(event, track, "trim-end")}
-        />
+        >
+          <ClipGrip color={track.color} selected={selected} />
+        </button>
       </ContextMenuTrigger>
       <ContextMenuContent className="w-44" onClick={() => onSelect(track.id)}>
         {track.kind === "block" && (
@@ -421,6 +433,7 @@ export function Timeline({
   const position = playheadSeconds * pixelsPerSecond;
   const surfaceWidth = Math.max(width, extent * pixelsPerSecond);
   const ticks = rulerTicks(extent, pixelsPerSecond, width, scrollLeft);
+  const tickStep = ticks.length > 1 ? ticks[1]!.time - ticks[0]!.time : 1;
   const targets = snapTargets(tracks, media.markers, playheadSeconds, duration);
 
   const rawTimeAt = (clientX: number) => {
@@ -788,11 +801,11 @@ export function Timeline({
             <LoopIcon active={loopPlayback} />
           </Button>
         </Tip>
-        <div className="ml-2 shrink-0 font-mono text-sm tabular-nums">
-          <div>{formatTimecode(playheadSeconds, composition.fps)}</div>
-          <div className="text-xs text-muted-foreground">
+        <div className="ml-2 flex shrink-0 flex-col gap-0.5 font-mono leading-none tabular-nums">
+          <span className="text-sm">{formatTimecode(playheadSeconds, composition.fps)}</span>
+          <span className="text-xs text-muted-foreground">
             {formatFrameIndex(playheadSeconds, composition.fps, duration)}
-          </div>
+          </span>
         </div>
       </div>
       <div className="ml-auto flex min-w-0 items-center justify-end gap-1">
@@ -828,7 +841,7 @@ export function Timeline({
             >
               <EllipsisHorizontalIcon />
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48 min-w-48 shadow-none">
+            <DropdownMenuContent align="end" className="w-48 min-w-48">
               {overflowTools.map((tool, index) => (
                 <Fragment key={tool.id}>
                   {index > 0 && (tool.id === "settings" || tool.id === "show") && (
@@ -956,14 +969,33 @@ export function Timeline({
             onPointerUp={onPointerUp}
           >
             <div className="absolute inset-y-0" style={{ left: -scrollLeft, width: surfaceWidth }}>
+              <span
+                className="pointer-events-none absolute inset-y-0 right-0 bg-background/20"
+                style={{ left: duration * pixelsPerSecond }}
+                aria-hidden="true"
+              />
               {ticks.map((tick) => (
-                <span
-                  key={tick.time}
-                  className="pointer-events-none absolute top-1 text-xs text-muted-foreground"
-                  style={{ left: tick.x }}
-                >
-                  {tick.time.toFixed(tick.time < 2 ? 2 : 1)}s
-                </span>
+                <Fragment key={tick.time}>
+                  <span
+                    className="pointer-events-none absolute bottom-0 h-2 w-px bg-muted-foreground/50"
+                    style={{ left: tick.x }}
+                    aria-hidden="true"
+                  />
+                  {[1, 2, 3, 4].map((minor) => (
+                    <span
+                      key={minor}
+                      className="pointer-events-none absolute bottom-0 h-1 w-px bg-muted-foreground/25"
+                      style={{ left: tick.x + (minor * tickStep * pixelsPerSecond) / 5 }}
+                      aria-hidden="true"
+                    />
+                  ))}
+                  <span
+                    className="pointer-events-none absolute top-1 pl-1.5 font-mono text-xs text-muted-foreground"
+                    style={{ left: tick.x }}
+                  >
+                    {formatRulerTime(tick.time, tickStep)}
+                  </span>
+                </Fragment>
               ))}
               {media.markers.map((marker) => (
                 <button
@@ -1113,6 +1145,11 @@ export function Timeline({
                     aria-hidden="true"
                   />
                 )}
+                <span
+                  className="pointer-events-none absolute inset-y-0 right-0 z-10 bg-background/20"
+                  style={{ left: duration * pixelsPerSecond }}
+                  aria-hidden="true"
+                />
                 {lanes.map((lane, index) => (
                   <ContextMenu key={lane.lane}>
                     <ContextMenuTrigger
@@ -1163,6 +1200,11 @@ export function Timeline({
                     </ContextMenuContent>
                   </ContextMenu>
                 ))}
+                {lanes.length > 0 && lanes.length < 4 && (
+                  <p className="pointer-events-none sticky left-0 inline-block px-3 py-2.5 text-xs text-muted-foreground/70 select-none">
+                    Drop library media here, or right-click to add a block, music, or a marker.
+                  </p>
+                )}
               </ContextMenuTrigger>
               <ContextMenuContent className="w-44">
                 <ContextMenuItem onClick={() => onCreateBlock?.(menuTime.current)}>
