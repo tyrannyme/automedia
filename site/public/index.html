@@ -63,7 +63,7 @@
       <section class="hero">
         <div class="hero-copy">
           <p class="kicker">
-            <span class="rec" aria-hidden="true"></span><span data-version>v0.3.0</span> · Linux and
+            <span class="rec" aria-hidden="true"></span><span data-version>v0.5.0</span> · Linux and
             Windows · Apache 2.0
           </p>
           <h1>HTML in.<br /><em>Video out.</em></h1>
@@ -206,8 +206,10 @@
             <span class="step-num">03</span>
             <h3>Export anything</h3>
             <p>
-              Video, stills, and audio encode in-process with Mediabunny. No FFmpeg to install.
-              Validation runs the same renderer as export, so what passes is what ships.
+              Video, stills, and audio encode on your machine, with no FFmpeg to install. MP4 and
+              WebM capture across a farm of headless browsers: a 65 s 1080p60 trailer with six video
+              clips and music exports in about 31 s on 24 cores and an NVIDIA GPU. Validation runs
+              the same renderer as export, so what passes is what ships.
             </p>
             <ul class="chips">
               <li>MP4</li>
@@ -240,15 +242,15 @@
             <pre class="code"><code data-highlight="json" id="config">{
   "mcpServers": {
     "automedia": {
-      "command": "automedia",
-      "args": ["mcp"]
+      "command": "pnpx",
+      "args": ["github:tyrannyme/automedia#cli", "mcp"]
     }
   }
 }</code></pre>
           </div>
           <p class="fineprint">
-            Build the command once from a checkout with <code>pnpm build:cli</code>, then
-            <code>pnpm link --global</code>.
+            Needs Node.js 22.18 or newer. The first run takes a minute while it installs, and the
+            first render downloads a headless Chromium.
           </p>
         </div>
         <div class="transcript" aria-label="An agent rendering a video">
@@ -282,6 +284,9 @@
             <li>validate</li>
             <li>start_export</li>
             <li>get_export</li>
+            <li>cancel_export</li>
+            <li>workspace_status</li>
+            <li>import_asset</li>
             <li>save_project</li>
           </ul>
         </div>
@@ -393,10 +398,11 @@
       <section class="download" id="download">
         <div class="section-head">
           <p class="label">Download</p>
-          <h2>Get Automedia <span data-version>v0.3.0</span>.</h2>
+          <h2>Get Automedia <span data-version>v0.5.0</span>.</h2>
           <p>
             Free and open source under Apache 2.0. The AppImage and the Windows installer update
-            themselves from GitHub releases.
+            themselves from GitHub releases. You also need Node.js 22.18 or newer, because the
+            engine runs on it.
           </p>
         </div>
         <div class="platforms">
