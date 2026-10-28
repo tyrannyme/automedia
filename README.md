@@ -53,6 +53,10 @@ You need Node.js 22.18 or newer. The first run takes a minute: it installs Autom
 
 The agent's compositions show up in the studio as it works, but it doesn't need the studio open.
 
+For pre-provisioned browsers and CPU-only cloud testing, see
+[Headless cloud rendering](docs/cloud.md). Set `AUTOMEDIA_CHROMIUM_EXECUTABLE_PATH`
+to use a compatible headless shell without a first-render download.
+
 ## Write a composition
 
 A composition is a normal web page. To draw each frame yourself, register a renderer:

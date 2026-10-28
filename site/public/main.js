@@ -33,7 +33,7 @@ const keywords = {
   wgsl: "fn|let|var|struct|return|for|if|else|vec2f|vec3f|vec4f|f32|i32|u32|uniform|group|binding|fragment|location",
   css: "from|to|infinite|linear|forwards|both|none|auto|inherit",
   json: "true|false|null",
-  sh: "git|cd|pnpm|clone|install|exec",
+  sh: "git|cd|pnpm|clone|install|exec|export",
 };
 
 function highlight(source, language) {
