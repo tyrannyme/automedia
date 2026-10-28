@@ -2,11 +2,35 @@
 
 Notable changes to Automedia. Releases also list every merged pull request.
 
-## Unreleased
+## 0.6.0 (27 Oct 2026)
+
+### Breaking
+
+- Exports are named after the project instead of the job id: `four-chords.mp4`, `four-chords-f79.png` for a still at frame 79, and `four-chords-2.mp4` when the name is taken. Scripts that built a path from the job id should read `outputPath` from `get_export` instead. `exports/.exports.json` maps each file back to its job, so content URLs keep working, including for exports made before this release.
+
+### Changed
+
+- The studio is redesigned around the picture. Open projects are tabs in the titlebar and Home is a gallery of every project, so the project sidebar is gone. The picture is the largest thing on screen, with a player under it and the editing tools on the timeline's own bar.
+- Clips show what is in them: visual blocks and videos as filmstrips of their own frames, audio as its waveform. The clip's colour is a dot on its label.
+- With nothing selected, the side panel is the project's dashboard: controls, what the agent just did, media, and finished exports. Select a clip and it becomes the clip. Below 1000 px wide it opens as a sheet.
+- While an agent holds a project, the titlebar names it and what it just did, and its tab shows its initial. Click for its recent activity, grouped into bursts, and the time left on its claim.
+- The export dialog shows the frame at the playhead and the file you will get, groups formats by what they make, counts real frames while it runs, and ends with a receipt you can play.
+- Code mode shows its save status, and when an agent writes the same file first, it pauses autosave and shows what each of you changed.
+- Controls: colour wells, segmented choices for short selects, and full-width sliders.
+- Text that only labels a value is darker in light mode and lighter in dark mode, so it passes WCAG AA everywhere.
 
 ### Added
 
+- First run offers templates beside the MCP setup for connecting an agent.
+- A New sheet with every engine example, and a command palette on Ctrl K / ⌘K.
+- `GET /compositions/<id>/thumbnail.png?t=<seconds>&h=<pixels>` renders one frame at that time, as the timeline's filmstrips use.
+- `claim_composition` and `release_composition` send studio events, so the studio shows a claim as soon as an agent makes it.
 - `AUTOMEDIA_CHROMIUM_EXECUTABLE_PATH` points the engine at a Chromium headless shell you've already installed, for cloud computers and sandboxes that can't download one on first render. Every browser the engine starts uses it, including the video frame farm. A bad path or a failed launch is an error; Automedia never downloads or falls back to another browser when it's set. See [Headless cloud rendering](docs/cloud.md).
+
+### Fixed
+
+- Coming back to a project's tab no longer shows its first frame under the right clock.
+- The trash dialog says what really happens: the project folder moves into the library's `compositions/.trash/`.
 
 ## 0.5.0 (27 Oct 2026)
 
