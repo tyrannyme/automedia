@@ -829,6 +829,34 @@ h2 {
   cursor: pointer;
 }
 
+.cloud {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 48px;
+  align-items: center;
+  padding: 32px;
+  border-radius: var(--round);
+  background: var(--rail);
+}
+
+.cloud h3 {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.cloud p:not(.label) {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 16px;
+}
+
+.cloud .button {
+  margin-top: 16px;
+}
+
 .transcript {
   overflow: hidden;
   border-radius: var(--round);
@@ -1243,8 +1271,14 @@ footer nav a:hover {
 
   .steps,
   .agents,
+  .cloud,
   .platforms {
     grid-template-columns: 1fr;
+  }
+
+  .cloud {
+    gap: 20px;
+    padding: 24px;
   }
 
   .viewer[open] {

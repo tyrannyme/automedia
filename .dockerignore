@@ -1,0 +1,8 @@
+.git
+node_modules
+.vite
+out
+cli
+coverage
+main.tar.gz
+*.log

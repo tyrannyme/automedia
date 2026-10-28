@@ -2,6 +2,12 @@
 
 Notable changes to Automedia. Releases also list every merged pull request.
 
+## Unreleased
+
+### Added
+
+- `AUTOMEDIA_CHROMIUM_EXECUTABLE_PATH` points the engine at a Chromium headless shell you've already installed, for cloud computers and sandboxes that can't download one on first render. Every browser the engine starts uses it, including the video frame farm. A bad path or a failed launch is an error; Automedia never downloads or falls back to another browser when it's set. See [Headless cloud rendering](docs/cloud.md).
+
 ## 0.5.0 (27 Oct 2026)
 
 ### Breaking
