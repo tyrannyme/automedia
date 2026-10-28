@@ -24,6 +24,16 @@ describe("studio event plans", () => {
     ).toEqual({ dropCached: "c9" });
   });
 
+  it("reloads the project list when an agent claims or releases any project", () => {
+    for (const type of ["claim_composition", "release_composition"]) {
+      for (const compositionId of ["c1", "c2"]) {
+        expect(
+          planStudioEvent({ type, compositionId, payload: { holder: "Claude" } }, context),
+        ).toEqual({ reloadLists: true });
+      }
+    }
+  });
+
   it("opens a composition created by another process", () => {
     expect(planStudioEvent({ type: "create_composition", compositionId: "c2" }, context)).toEqual({
       reloadLists: true,

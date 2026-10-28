@@ -72,6 +72,10 @@ export async function startEngine(
     port: options.port,
     busy,
     onRequest: options.onRequest,
+    frame: (compositionId, timeSeconds, height) => {
+      if (!context.thumbnails) throw new Error("filmstrip frames are not ready");
+      return context.thumbnails.frame(compositionId, timeSeconds, height);
+    },
   });
   server = running;
 

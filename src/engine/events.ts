@@ -5,6 +5,7 @@ import type { ExportJob } from "./export.ts";
 
 export type ActivityDetail =
   | { name: string }
+  | { holder: string }
   | { path: string }
   | { trackId: string }
   | { markerId: string }

@@ -46,3 +46,18 @@ export function isTypingTarget(target: EventTarget | null): boolean {
     (target instanceof HTMLElement && target.isContentEditable)
   );
 }
+
+function pad(value: number): string {
+  return String(value).padStart(2, "0");
+}
+
+/**
+ * Hours, minutes, seconds and frames of one frame index, so the clock and the
+ * frame number beside it always name the same frame.
+ */
+export function frameTimecode(frame: number, fps: number): string {
+  const rate = Math.max(1, Math.round(fps));
+  const whole = Math.max(0, Math.round(frame));
+  const seconds = Math.floor(whole / rate);
+  return `${pad(Math.floor(seconds / 3600))}:${pad(Math.floor((seconds % 3600) / 60))}:${pad(seconds % 60)}:${pad(whole % rate)}`;
+}

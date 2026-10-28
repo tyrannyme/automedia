@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
+import { ChevronRightIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import type { Composition } from "@shared/schemas.ts";
 import type { RuntimeCatalog } from "../../engine/runtime.ts";
 import { Button } from "@/components/ui/button.tsx";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
-  DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog.tsx";
 import { Input } from "@/components/ui/input.tsx";
@@ -18,6 +19,11 @@ import {
   validateCompositionSettings,
 } from "@/lib/composition-settings.ts";
 import { limits } from "@shared/limits.ts";
+import { cn } from "@/lib/utils.ts";
+
+/** Fields sit in raised wells inside the sheet, like every other dialog field. */
+const fieldClass = "bg-raised hover:bg-raised focus-visible:bg-raised";
+const labelClass = "text-[13px] font-normal text-muted-foreground";
 
 type CompositionSettingsDialogProps = {
   open: boolean;
@@ -76,6 +82,14 @@ export function CompositionSettingsDialog({
     }
   };
 
+  const typed = background.trim();
+  const backgroundSwatch =
+    typed.toLowerCase() === "transparent"
+      ? "transparent"
+      : /^#(?:[\da-f]{3}|[\da-f]{6}|[\da-f]{8})$/i.test(typed)
+        ? typed
+        : null;
+
   const clearError = (field: CompositionSettingsField) => {
     if (!errors[field]) return;
     setErrors((current) => ({ ...current, [field]: undefined }));
@@ -83,14 +97,40 @@ export function CompositionSettingsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md" data-settings-dialog="">
-        <DialogHeader>
-          <DialogTitle>Composition</DialogTitle>
-          <DialogDescription>Size, frame rate, and background for this project.</DialogDescription>
-        </DialogHeader>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="col-span-2 space-y-1.5">
-            <Label htmlFor="comp-name">Name</Label>
+      <DialogContent
+        className="gap-0 p-0 sm:max-w-[440px]"
+        data-settings-dialog=""
+        showCloseButton={false}
+      >
+        <header className="flex h-16 items-center gap-3 pr-3 pl-6">
+          <DialogTitle className="text-[17px] tracking-[-0.02em]">Composition</DialogTitle>
+          {composition && (
+            <span className="min-w-0 truncate text-sm text-muted-foreground">
+              {composition.name}
+            </span>
+          )}
+          <span className="min-w-0 flex-1" />
+          <DialogClose
+            render={
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="text-muted-foreground hover:text-foreground"
+                aria-label="Close"
+              />
+            }
+          >
+            <XMarkIcon />
+          </DialogClose>
+        </header>
+        <DialogDescription className="sr-only">
+          Size, frame rate, and background for this project.
+        </DialogDescription>
+        <div className="grid grid-cols-3 gap-x-3 gap-y-4 px-6">
+          <div className="col-span-3 space-y-1.5">
+            <Label className={labelClass} htmlFor="comp-name">
+              Name
+            </Label>
             <Input
               id="comp-name"
               value={name}
@@ -100,7 +140,7 @@ export function CompositionSettingsDialog({
               }}
               aria-invalid={Boolean(errors.name)}
               aria-describedby={errors.name ? "comp-name-error" : undefined}
-              className="bg-background hover:bg-background focus-visible:bg-background"
+              className={fieldClass}
             />
             {errors.name && (
               <p id="comp-name-error" className="text-xs text-destructive">
@@ -109,7 +149,9 @@ export function CompositionSettingsDialog({
             )}
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="comp-width">Width</Label>
+            <Label className={labelClass} htmlFor="comp-width">
+              Width
+            </Label>
             <Input
               id="comp-width"
               type="number"
@@ -123,7 +165,7 @@ export function CompositionSettingsDialog({
               }}
               aria-invalid={Boolean(errors.width)}
               aria-describedby={errors.width ? "comp-width-error" : undefined}
-              className="bg-background hover:bg-background focus-visible:bg-background"
+              className={fieldClass}
             />
             {errors.width && (
               <p id="comp-width-error" className="text-xs text-destructive">
@@ -132,7 +174,9 @@ export function CompositionSettingsDialog({
             )}
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="comp-height">Height</Label>
+            <Label className={labelClass} htmlFor="comp-height">
+              Height
+            </Label>
             <Input
               id="comp-height"
               type="number"
@@ -146,7 +190,7 @@ export function CompositionSettingsDialog({
               }}
               aria-invalid={Boolean(errors.height)}
               aria-describedby={errors.height ? "comp-height-error" : undefined}
-              className="bg-background hover:bg-background focus-visible:bg-background"
+              className={fieldClass}
             />
             {errors.height && (
               <p id="comp-height-error" className="text-xs text-destructive">
@@ -155,7 +199,9 @@ export function CompositionSettingsDialog({
             )}
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="comp-fps">FPS</Label>
+            <Label className={labelClass} htmlFor="comp-fps">
+              Frame rate
+            </Label>
             <Input
               id="comp-fps"
               type="number"
@@ -169,7 +215,7 @@ export function CompositionSettingsDialog({
               }}
               aria-invalid={Boolean(errors.fps)}
               aria-describedby={errors.fps ? "comp-fps-error" : undefined}
-              className="bg-background hover:bg-background focus-visible:bg-background"
+              className={fieldClass}
             />
             {errors.fps && (
               <p id="comp-fps-error" className="text-xs text-destructive">
@@ -177,20 +223,36 @@ export function CompositionSettingsDialog({
               </p>
             )}
           </div>
-          <div className="col-span-2 space-y-1.5">
-            <Label htmlFor="comp-bg">Background</Label>
-            <Input
-              id="comp-bg"
-              value={background}
-              onChange={(event) => {
-                setBackground(event.target.value);
-                clearError("background");
-              }}
-              aria-invalid={Boolean(errors.background)}
-              aria-describedby={errors.background ? "comp-bg-help comp-bg-error" : "comp-bg-help"}
-              className="bg-background hover:bg-background focus-visible:bg-background"
-            />
-            <p id="comp-bg-help" className="text-xs text-muted-foreground">
+          <div className="col-span-3 space-y-1.5">
+            <Label className={labelClass} htmlFor="comp-bg">
+              Background
+            </Label>
+            <div className="relative">
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 rounded-[4px] outline -outline-offset-1 outline-foreground/15",
+                  backgroundSwatch === "transparent" && "chequer",
+                )}
+                style={
+                  backgroundSwatch === "transparent"
+                    ? { backgroundSize: "8px 8px" }
+                    : { background: backgroundSwatch ?? "transparent" }
+                }
+              />
+              <Input
+                id="comp-bg"
+                value={background}
+                onChange={(event) => {
+                  setBackground(event.target.value);
+                  clearError("background");
+                }}
+                aria-invalid={Boolean(errors.background)}
+                aria-describedby={errors.background ? "comp-bg-help comp-bg-error" : "comp-bg-help"}
+                className={cn(fieldClass, "pl-9 font-mono")}
+              />
+            </div>
+            <p id="comp-bg-help" className="text-[12px] text-dim">
               Hex color, or transparent.
             </p>
             {errors.background && (
@@ -201,12 +263,21 @@ export function CompositionSettingsDialog({
           </div>
         </div>
         {runtime && (
-          <div>
-            <Button variant="ghost" size="sm" onClick={() => setAdvanced((value) => !value)}>
-              {advanced ? "Hide runtime" : "Runtime details"}
+          <div className="mt-4 px-6">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="-ml-2.5 text-muted-foreground hover:text-foreground aria-expanded:bg-transparent aria-expanded:hover:bg-surface"
+              aria-expanded={advanced}
+              onClick={() => setAdvanced((value) => !value)}
+            >
+              <ChevronRightIcon
+                className={cn("transition-transform duration-200", advanced && "rotate-90")}
+              />
+              Runtime details
             </Button>
             {advanced && (
-              <dl className="mt-2 space-y-1 font-mono text-xs text-muted-foreground">
+              <dl className="mt-1 space-y-1 font-mono text-xs text-muted-foreground">
                 {Object.entries(runtime).map(([key, value]) => (
                   <div key={key} className="flex justify-between gap-2">
                     <dt>{key}</dt>
@@ -218,15 +289,15 @@ export function CompositionSettingsDialog({
           </div>
         )}
         {saveError && (
-          <p role="alert" className="text-sm text-destructive">
+          <p role="alert" className="mt-3 px-6 text-sm text-destructive">
             {saveError}
           </p>
         )}
-        <DialogFooter>
-          <Button variant="ghost" disabled={saving} onClick={() => onOpenChange(false)}>
+        <DialogFooter className="mt-2 h-[72px] items-center pr-5 pl-6">
+          <Button variant="ghost" size="sm" disabled={saving} onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button disabled={saving} onClick={() => void commit()}>
+          <Button size="sm" disabled={saving} onClick={() => void commit()}>
             {saving ? "Saving" : "Save"}
           </Button>
         </DialogFooter>

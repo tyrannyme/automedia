@@ -51,6 +51,7 @@
 
 html {
   overflow-x: clip;
+  -webkit-tap-highlight-color: transparent;
   scroll-behavior: smooth;
   scroll-padding-top: 80px;
 }
@@ -173,11 +174,6 @@ svg {
   transition:
     transform 0.15s,
     background 0.15s;
-}
-
-.button:hover {
-  background: #fff;
-  transform: translateY(-1px);
 }
 
 .button svg {
@@ -303,7 +299,7 @@ h1 em {
 
 .lost {
   grid-template-columns: 1fr;
-  min-height: 70vh;
+  min-height: 70svh;
 }
 
 /* Showreel */
@@ -425,7 +421,6 @@ h1 em {
     background 0.2s;
 }
 
-.clip:hover,
 .clip[aria-current="true"] {
   background: var(--color);
   opacity: 1;
@@ -549,10 +544,6 @@ h2 {
   transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-.card:hover {
-  transform: translateY(-3px);
-}
-
 .card-media {
   position: relative;
   overflow: hidden;
@@ -617,7 +608,6 @@ h2 {
     transform 0.2s;
 }
 
-.card:hover .card-open,
 .card:focus-visible .card-open {
   opacity: 1;
   transform: none;
@@ -1025,11 +1015,6 @@ h2 {
     transform 0.2s;
 }
 
-a.platform:hover {
-  background: var(--inspector);
-  transform: translateY(-2px);
-}
-
 .platform.suggested {
   box-shadow: inset 0 0 0 1px var(--border);
 }
@@ -1376,6 +1361,49 @@ footer nav a:hover {
   footer nav {
     flex-wrap: wrap;
   }
+}
+
+/* Touch: hover lifts only where a mouse can hover, press feedback everywhere. */
+
+a,
+button,
+[role="tab"] {
+  touch-action: manipulation;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .button:hover {
+    background: #fff;
+    transform: translateY(-1px);
+  }
+
+  .card:hover {
+    transform: translateY(-3px);
+  }
+
+  .card:hover .card-open {
+    opacity: 1;
+    transform: none;
+  }
+
+  a.platform:hover {
+    background: var(--inspector);
+    transform: translateY(-2px);
+  }
+
+  .clip:hover {
+    background: var(--color);
+    opacity: 1;
+  }
+}
+
+.button:active {
+  transform: scale(0.96);
+}
+
+.card:active,
+a.platform:active {
+  transform: scale(0.98);
 }
 
 @media (prefers-reduced-motion: reduce) {

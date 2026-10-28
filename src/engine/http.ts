@@ -20,12 +20,21 @@ import { sendFile, sendJson } from "./http-files.ts";
 import { resolveLoopbackPort } from "./loopback.ts";
 import { isOperationName, runOperation, type Caller, type Operations } from "./operations.ts";
 import type { CompositionStore } from "./store.ts";
-import { thumbnailPath } from "./thumbnails.ts";
+import { frameDefaultHeight, thumbnailPath } from "./thumbnails.ts";
 import { ownerHeader, type EngineHealth } from "./protocol.ts";
 import { engineVersion } from "./version.ts";
 
 /** Lets a client spot an engine still running an older build of its own install. */
 const engineBuild = { bundle: __filename, builtAt: statSync(__filename).mtimeMs };
+
+const thumbnailHeaders = {
+  "cache-control": "no-cache, no-store, must-revalidate",
+  "content-security-policy": "default-src 'none'",
+  // The renderer may be a Vite origin while the asset is loopback.
+  // `same-origin` would prevent the project sidebar from loading it.
+  "cross-origin-resource-policy": "cross-origin",
+  "x-content-type-options": "nosniff",
+};
 
 /** Writes to an asset path can carry whole media files as base64. */
 const maxApiBodyBytes = 512 * 1024 * 1024;
@@ -60,6 +69,10 @@ export async function startLoopbackServer(options: {
   busy?: (() => boolean) | undefined;
   /** Called on every request, so an idle engine can tell when to exit. */
   onRequest?: (() => void) | undefined;
+  /** Renders one filmstrip frame for `thumbnail.png?t=`, returning its cached file. */
+  frame?:
+    | ((compositionId: string, timeSeconds: number, height: number) => Promise<string>)
+    | undefined;
 }): Promise<LoopbackServer> {
   const { store, mcp, events, operations } = options;
   const validateHost = localhostHostValidation();
@@ -135,19 +148,32 @@ export async function startLoopbackServer(options: {
           return;
         }
         await store.get(compositionId);
+        const at = url.searchParams.get("t");
+        if (at !== null) {
+          const timeSeconds = Number(at);
+          const height = Number(url.searchParams.get("h") ?? frameDefaultHeight);
+          if (
+            !options.frame ||
+            at.trim() === "" ||
+            !Number.isFinite(timeSeconds) ||
+            timeSeconds < 0
+          ) {
+            sendJson(response, 400, {
+              code: "invalid_input",
+              message: "t must be a time in seconds",
+            });
+            return;
+          }
+          const framePath = await options.frame(compositionId, timeSeconds, height);
+          await sendFile(request, response, framePath, thumbnailHeaders);
+          return;
+        }
         const filePath = thumbnailPath(store, compositionId);
         if (!(await pathExists(filePath))) {
           sendJson(response, 404, { code: "not_found", message: "Thumbnail not found" });
           return;
         }
-        await sendFile(request, response, filePath, {
-          "cache-control": "no-cache, no-store, must-revalidate",
-          "content-security-policy": "default-src 'none'",
-          // The renderer may be a Vite origin while the asset is loopback.
-          // `same-origin` would prevent the project sidebar from loading it.
-          "cross-origin-resource-policy": "cross-origin",
-          "x-content-type-options": "nosniff",
-        });
+        await sendFile(request, response, filePath, thumbnailHeaders);
         return;
       }
       const contentMatch = /^\/compositions\/([^/]+)\/(content|render)\/(.*)$/.exec(url.pathname);

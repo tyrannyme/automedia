@@ -6,7 +6,14 @@ import { AppError } from "@shared/errors.ts";
 import type { Composition } from "@shared/schemas.ts";
 import { CompositionStore } from "./store.ts";
 import { frameDelays } from "./export-capture.ts";
-import { ExportQueue, listExports, type ExportJob } from "./export.ts";
+import {
+  exportFileExists,
+  exportFileName,
+  ExportQueue,
+  listExports,
+  type ExportJob,
+} from "./export.ts";
+import { recordExportFile } from "./export-verify.ts";
 import { RenderPool } from "./render-pool.ts";
 import { encoderChoices } from "./video-encoder.ts";
 
@@ -167,5 +174,30 @@ describe("listExports", () => {
     const files = await listExports(store, composition.id);
     expect(files.map((file) => file.fileName)).toEqual(["job-new.mp4", "job-old.png"]);
     expect(files[0]?.format).toBe("mp4");
+    expect(files.map((file) => file.bytes)).toEqual([1, 1]);
+  });
+});
+
+describe("export file names", () => {
+  it("names files after the project, with the frame for stills and a count for repeats", () => {
+    expect(exportFileName("Four chords", "mp4")).toBe("four-chords.mp4");
+    expect(exportFileName("Four chords", "png", { frame: 79 })).toBe("four-chords-f79.png");
+    expect(exportFileName("Four chords", "mp4", { copy: 2 })).toBe("four-chords-2.mp4");
+    expect(exportFileName("Café — Opener!", "webm")).toBe("cafe-opener.webm");
+    expect(exportFileName("日本", "gif")).toBe("export.gif");
+  });
+
+  it("maps named files back to the job that wrote them", async () => {
+    const store = await tempStore();
+    const composition = await store.create();
+    const dir = path.join(store.compositionDir(composition.id), "exports");
+    await mkdir(dir, { recursive: true });
+    await writeFile(path.join(dir, "four-chords.mp4"), "a");
+    await recordExportFile(dir, "four-chords.mp4", "j1234");
+    const [file] = await listExports(store, composition.id);
+    expect(file?.jobId).toBe("j1234");
+    expect(await exportFileExists(store, composition.id, "j1234")).toBe(
+      path.join(dir, "four-chords.mp4"),
+    );
   });
 });

@@ -47,28 +47,34 @@ Once `start` prints `ready`, CDP is up, usually after about 6 seconds. The
 first driver call should still `waitFor()` its first control, because React may
 not have mounted yet.
 
-For multi-line flows, pipe a script. This one was run end to end: it creates a
-composition, adds a block, plays it, and exports a PNG.
+For multi-line flows, pipe a script. This one was run end to end on a fresh
+profile: it starts a blank project from first run, adds a block from the
+timeline's Add menu, plays it, and exports a PNG.
 
 ```bash
 node .agents/skills/run-automedia/driver.mjs - <<'EOF'
-await page.getByRole("button", { name: "New project" }).waitFor();
-await page.getByRole("button", { name: "New project" }).click();
-await page.getByRole("menuitem", { name: "Blank composition" }).click();
-await page.getByRole("button", { name: "Add block" }).last().click();
-await sleep(1500);
+await page.getByRole("button", { name: /Blank/ }).first().waitFor();
+await page.getByRole("button", { name: /Blank/ }).first().click();
+await sleep(2500);
+await page.getByRole("button", { name: "Add", exact: true }).click();
+await page.getByRole("menuitem", { name: /Block/ }).first().click();
+await sleep(2000);
 await page.getByRole("button", { name: "Play", exact: true }).click();
 await sleep(1000);
 await shot("playing");
 await page.getByRole("button", { name: "Pause", exact: true }).click();
 await page.getByRole("button", { name: "Export", exact: true }).first().click();
-await page.getByRole("button", { name: "PNG", exact: true }).click();
-await page.getByRole("button", { name: "Start export" }).click();
+await page.getByRole("radio", { name: /PNG/ }).or(page.getByRole("button", { name: /^PNG/ })).first().click();
+await page.getByRole("button", { name: /^Export PNG$/ }).click();
 const view = await waitForExport();
 await shot("export-" + view);
 return { view, jobs: (await jobs()).map((job) => [job.format, job.phase]) };
 EOF
 ```
+
+With projects in the library the studio opens on Home. Open one with
+`page.getByRole("button", { name: "Open Four chords" })` and go back with the
+titlebar's Home button (`{ name: /^home$/i }`). Open projects are titlebar tabs.
 
 Light mode and the compact window:
 
@@ -93,7 +99,7 @@ In a driver snippet you have:
 
 `app.sh` commands: `start [--fresh]`, `stop`, `status`, `logs [lines]`.
 Environment overrides: `AUTOMEDIA_RUN_DIR`, `AUTOMEDIA_CDP_PORT` (47922),
-`AUTOMEDIA_LOOPBACK_PORT` (47921), `SCHEME=light|dark` (driver, default dark).
+`AUTOMEDIA_LOOPBACK_PORT` (47921), `AUTOMEDIA_TMUX_SESSION`, `AUTOMEDIA_XVFB_DISPLAY` (CDP port minus 47000, so `:922`), `SCHEME=light|dark` (driver, default dark). Give each instance its own run dir, ports and session to run several at once.
 
 Renderer changes (`src/renderer/**`) hot-reload; add `await page.reload()` to
 the next snippet to get a clean state. Changes under `src/main/**`,

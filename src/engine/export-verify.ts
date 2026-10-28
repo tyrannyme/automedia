@@ -1,5 +1,6 @@
-import { readdir, stat } from "node:fs/promises";
+import { readdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
+import * as v from "valibot";
 import { AppError } from "@shared/errors.ts";
 import { isExportFormat } from "@shared/media.ts";
 import type { ExportFile } from "@shared/ipc.ts";
@@ -87,12 +88,51 @@ export async function verifyAudio(
   verifyDuration(probe, composition);
 }
 
+const INDEX = ".exports.json";
+const exportIndexSchema = v.record(v.string(), v.string());
+
+/** Export files are named after the project; this index maps each file back to its job id. */
+async function readExportIndex(exportsDir: string): Promise<Record<string, string>> {
+  try {
+    const parsed = v.safeParse(
+      exportIndexSchema,
+      JSON.parse(await readFile(path.join(exportsDir, INDEX), "utf8")),
+    );
+    return parsed.success ? parsed.output : {};
+  } catch {
+    return {};
+  }
+}
+
+const indexWrites = new Map<string, Promise<void>>();
+
+/** Records which job wrote `fileName`. Writes per folder run one at a time. */
+export function recordExportFile(
+  exportsDir: string,
+  fileName: string,
+  jobId: string,
+): Promise<void> {
+  const previous = indexWrites.get(exportsDir) ?? Promise.resolve();
+  const next = previous.then(async () => {
+    const index = await readExportIndex(exportsDir);
+    index[fileName] = jobId;
+    await writeFile(path.join(exportsDir, INDEX), `${JSON.stringify(index, null, 2)}\n`);
+  });
+  indexWrites.set(
+    exportsDir,
+    next.catch(() => {}),
+  );
+  return next;
+}
+
 export async function exportFileExists(
   store: CompositionStore,
   compositionId: string,
   jobId: string,
 ): Promise<string> {
   const dir = path.join(store.compositionDir(compositionId), "exports");
+  const named = Object.entries(await readExportIndex(dir)).find(([, id]) => id === jobId)?.[0];
+  if (named && (await pathExists(path.join(dir, named)))) return path.join(dir, named);
   for (const format of ["png", "gif", "webp", "mp4", "webm", "mp3", "wav", "ogg"] as const) {
     const filePath = path.join(dir, `${jobId}.${format}`);
     if (await pathExists(filePath)) {
@@ -112,6 +152,7 @@ export async function listExports(
     return [];
   }
   const entries = await readdir(exportsDir, { withFileTypes: true });
+  const index = await readExportIndex(exportsDir);
   const files: ExportFile[] = [];
   for (const entry of entries) {
     if (!entry.isFile() || entry.name.startsWith(".") || entry.name.includes(".automedia-tmp.")) {
@@ -127,10 +168,11 @@ export async function listExports(
       continue;
     }
     files.push({
-      jobId: match[1] ?? "",
+      jobId: index[entry.name] ?? match[1] ?? "",
       format,
       fileName: entry.name,
       mtimeMs: info.mtimeMs,
+      bytes: info.size,
     });
   }
   return files.toSorted((a, b) => b.mtimeMs - a.mtimeMs);

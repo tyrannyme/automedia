@@ -9,6 +9,9 @@ RUN_DIR="${AUTOMEDIA_RUN_DIR:-/tmp/automedia-run}"
 CDP_PORT="${AUTOMEDIA_CDP_PORT:-47922}"
 LOOPBACK_PORT="${AUTOMEDIA_LOOPBACK_PORT:-47921}"
 SESSION="${AUTOMEDIA_TMUX_SESSION:-automedia-run}"
+# A fixed display per instance, so stop can find its X server. xvfb-run -a
+# picks a free one, and killing tmux leaves that Xvfb running with no parent.
+DISPLAY_NUM="${AUTOMEDIA_XVFB_DISPLAY:-$((CDP_PORT - 47000))}"
 LOG="$RUN_DIR/dev.log"
 
 ready() {
@@ -33,7 +36,7 @@ case "${1:-}" in
     tmux new-session -d -s "$SESSION" -x 200 -y 50 \
       "cd '$UNIT_DIR' && env -u WAYLAND_DISPLAY XDG_SESSION_TYPE=x11 \
         AUTOMEDIA_CDP_PORT=$CDP_PORT AUTOMEDIA_LOOPBACK_PORT=$LOOPBACK_PORT \
-        xvfb-run -a -s '-screen 0 1920x1080x24' \
+        xvfb-run -n $DISPLAY_NUM -s '-screen 0 1920x1080x24' \
         pnpm dev -- --user-data-dir='$RUN_DIR/userdata' --ozone-platform=x11 >>'$LOG' 2>&1; \
         echo \"EXIT \$?\" >>'$LOG'; sleep 100000"
     for _ in $(seq 1 120); do
@@ -52,6 +55,8 @@ case "${1:-}" in
     sleep 1
     pids="$(app_pids)"
     if [[ -n "$pids" ]]; then kill $pids 2>/dev/null || true; fi
+    xvfb="$(pgrep -fx "Xvfb :$DISPLAY_NUM .*" || true)"
+    if [[ -n "$xvfb" ]]; then kill $xvfb 2>/dev/null || true; fi
     echo "stopped"
     ;;
   status)

@@ -8,13 +8,14 @@ import {
   isVideoExportFormat,
 } from "@shared/media.ts";
 import type { ExportFormat, StartExportInput } from "@shared/schemas.ts";
+import { exportFileName } from "@shared/export-name.ts";
 import { createId, ensureDir, pathExists, removeFile } from "./fs.ts";
 import { captureAudio, capturePng, captureStillSequence, captureVideo } from "./export-capture.ts";
 import { compositionExportUrl, resolveLoopbackUrl, type LoopbackUrlSource } from "./loopback.ts";
 import type { RenderPool } from "./render-pool.ts";
 import type { CompositionStore } from "./store.ts";
 import { validateComposition } from "./validate.ts";
-import { verifyAudio, verifyVideo } from "./export-verify.ts";
+import { recordExportFile, verifyAudio, verifyVideo } from "./export-verify.ts";
 
 export type ExportPhase =
   | "queued"
@@ -58,6 +59,7 @@ const keptJobs = 500;
 export class ExportQueue {
   private readonly jobs = new Map<string, ExportJob>();
   private canceled = new Set<string>();
+  private readonly reservedPaths = new Set<string>();
 
   constructor(
     private readonly store: CompositionStore,
@@ -211,8 +213,7 @@ export class ExportQueue {
     }
     const exportsDir = path.join(this.store.compositionDir(job.compositionId), "exports");
     await ensureDir(exportsDir);
-    const fileName = `${job.id}.${job.format}`;
-    finalPath = path.join(exportsDir, fileName);
+    finalPath = await this.claimOutputPath(exportsDir, composition, job);
     tempPath = `${finalPath}.automedia-tmp.${job.format}`;
     job.outputPath = finalPath;
     try {
@@ -277,6 +278,7 @@ export class ExportQueue {
       this.assertActive(job);
       await rename(tempPath, finalPath);
       tempPath = undefined;
+      await recordExportFile(exportsDir, path.basename(finalPath), job.id);
       this.assertActive(job);
       if (job.path) {
         await ensureDir(path.dirname(job.path));
@@ -298,6 +300,26 @@ export class ExportQueue {
       } else if (tempPath) {
         await removeFile(tempPath);
       }
+      if (finalPath) this.reservedPaths.delete(finalPath);
+    }
+  }
+
+  /** Names the file after the project (`four-chords.mp4`, `four-chords-f79.png`), never reusing a name on disk or in flight. */
+  private async claimOutputPath(
+    exportsDir: string,
+    composition: { name: string; fps: number },
+    job: ExportJob,
+  ): Promise<string> {
+    const frame =
+      job.format === "png" ? Math.round((job.timeSeconds ?? 0) * composition.fps) : undefined;
+    for (let copy = 1; ; copy += 1) {
+      const candidate = path.join(
+        exportsDir,
+        exportFileName(composition.name, job.format, { frame, copy }),
+      );
+      if (this.reservedPaths.has(candidate) || (await pathExists(candidate))) continue;
+      this.reservedPaths.add(candidate);
+      return candidate;
     }
   }
 
@@ -324,3 +346,4 @@ export class ExportQueue {
 }
 
 export { exportFileExists, listExports, verifyAudio, verifyVideo } from "./export-verify.ts";
+export { exportFileName };

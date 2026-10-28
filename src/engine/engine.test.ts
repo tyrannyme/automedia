@@ -94,6 +94,29 @@ describe("engine", () => {
     expect(response.status).toBe(403);
   });
 
+  it("tells the studio when a composition is claimed and released", async () => {
+    const engine = await start();
+    const seen: { type: string; compositionId?: string | undefined }[] = [];
+    engine.events.subscribe((event) => seen.push(event));
+    const created = await api(engine, "createComposition", { name: "Claimed" });
+    // SAFETY: createComposition answers with the new composition.
+    const { data } = (await created.json()) as { data: { id: string } };
+
+    await api(engine, "claimComposition", { compositionId: data.id, holder: "Claude" });
+    // SAFETY: a successful listCompositions call answers with leased compositions.
+    const listed = (await (await api(engine, "listCompositions")).json()) as {
+      data: { lease: { holder: string } | null }[];
+    };
+    expect(listed.data[0]?.lease?.holder).toBe("Claude");
+    await api(engine, "releaseComposition", { compositionId: data.id, holder: "Claude" });
+
+    expect(seen.filter((event) => event.type.endsWith("_composition"))).toEqual([
+      expect.objectContaining({ type: "create_composition", compositionId: data.id }),
+      { type: "claim_composition", compositionId: data.id, payload: { holder: "Claude" } },
+      { type: "release_composition", compositionId: data.id, payload: { holder: "Claude" } },
+    ]);
+  });
+
   it("requires absolute paths for files outside the library", async () => {
     const engine = await start();
 

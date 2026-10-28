@@ -69,28 +69,28 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-surface: var(--surface);
+  --color-scrim: var(--scrim);
   --color-canvas-preview: var(--canvas-preview);
   --color-canvas-code: var(--canvas-code);
   --color-canvas-inspector: var(--canvas-inspector);
   --color-canvas-rail: var(--canvas-rail);
   --color-canvas-timeline: var(--canvas-timeline);
   --color-playhead: var(--playhead);
+  --color-raised: var(--raised);
+  --color-dim: var(--dim);
+  --color-faint: var(--faint);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
   --color-chequer-a: var(--chequer-a);
   --color-chequer-b: var(--chequer-b);
-  --color-inspector-head-composition: var(--inspector-head-composition);
-  --color-inspector-head-clip: var(--inspector-head-clip);
-  --color-inspector-head-marker: var(--inspector-head-marker);
-  --color-inspector-head-controls: var(--inspector-head-controls);
-  --color-inspector-head-library: var(--inspector-head-library);
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 20px;
-  --radius-2xl: 24px;
-  --radius-3xl: 24px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-2xl: 16px;
+  --radius-3xl: 20px;
   --radius-4xl: 24px;
+  --shadow-float: var(--float-shadow);
   --font-sans: "Poppins", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "DM Mono", ui-monospace, monospace;
   --font-wordmark: "Nunito", "Poppins", ui-sans-serif, system-ui, sans-serif;
@@ -128,11 +128,17 @@
   --input: light-dark(#e5e5e5, #2e2e2e);
   --ring: light-dark(#171717, #f5f5f5);
   --surface: light-dark(#d0d0d0, #262626);
-  --canvas-preview: light-dark(#f0f0f0, #111111);
+  --canvas-preview: light-dark(#f2f2f2, #101010);
   --canvas-code: light-dark(#f4f4f4, #0e0e0e);
-  --canvas-inspector: light-dark(#e8e8e8, #161616);
+  --canvas-inspector: light-dark(#f7f7f7, #141414);
   --canvas-rail: light-dark(#f6f6f6, #0a0a0a);
-  --canvas-timeline: light-dark(#e0e0e0, #0c0c0c);
+  --canvas-timeline: light-dark(#ebebeb, #0b0b0b);
+  --raised: light-dark(#ececec, #1c1c1c);
+  --dim: light-dark(#636363, #8a8a8a);
+  --faint: light-dark(#808080, #707070);
+  --scrim: light-dark(rgb(0 0 0 / 0.32), rgb(0 0 0 / 0.64));
+  --float-shadow-color: light-dark(rgb(0 0 0 / 0.2), rgb(0 0 0 / 0.72));
+  --float-shadow: 0 1px 2px rgb(0 0 0 / 0.08), 0 16px 40px -12px var(--float-shadow-color);
   --scrollbar-thumb: color-mix(in srgb, var(--foreground) 26%, transparent);
   --scrollbar-thumb-hover: color-mix(in srgb, var(--foreground) 42%, transparent);
   --scrollbar-track: transparent;
@@ -141,11 +147,6 @@
   --warning-foreground: light-dark(#ffffff, #0a0a0a);
   --chequer-a: light-dark(#e5e5e5, #171717);
   --chequer-b: light-dark(#fafafa, #0a0a0a);
-  --inspector-head-composition: light-dark(#d0d0d0, #2c2c2c);
-  --inspector-head-clip: light-dark(#b4b4b4, #424242);
-  --inspector-head-marker: light-dark(#c2c2c2, #363636);
-  --inspector-head-controls: light-dark(#dedede, #222222);
-  --inspector-head-library: light-dark(#a6a6a6, #505050);
 }
 
 html.light {
@@ -371,5 +372,146 @@ html.dark {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* ---------- Dialogs: export, code, command palette ---------- */
+:root {
+  /* Inset wells inside a floating sheet (#1a1a1a in dark): notices, paths, code boxes. */
+  --dialog-well: light-dark(#e6e6e6, #222222);
+  --dialog-surface-2: light-dark(#d4d4d4, #303030);
+  /* Selected rows and icon tiles inside a sheet: the kit's surface, softer than --surface in light. */
+  --dialog-selected: light-dark(#e0e0e0, #262626);
+  /* The frame's drop inside the export well; lighter on the light stage. */
+  --dialog-hero-shadow: 0 20px 50px -24px light-dark(rgb(0 0 0 / 0.32), rgb(0 0 0 / 0.8));
+}
+
+@theme inline {
+  --color-dialog-well: var(--dialog-well);
+  --color-dialog-surface-2: var(--dialog-surface-2);
+  --color-dialog-selected: var(--dialog-selected);
+}
+
+/* ---------- Stage (stage agent): picture, timeline clips ---------- */
+@layer components {
+  /* The picture's true edge: a hairline and a soft drop, on any background. */
+  .stage-picture {
+    background: #000;
+    outline: 1px solid rgb(0 0 0 / 0.1);
+    box-shadow: 0 30px 70px -36px rgb(0 0 0 / 0.35);
+  }
+
+  .dark .stage-picture {
+    outline-color: rgb(255 255 255 / 0.08);
+    box-shadow: 0 30px 80px -30px rgb(0 0 0 / 0.8);
+  }
+
+  /* The strip darkens behind the label so the chip reads over any frame. */
+  .clip-film::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      linear-gradient(to right, rgb(0 0 0 / 0.72), rgb(0 0 0 / 0.4) 150px, transparent 200px),
+      linear-gradient(to bottom, rgb(0 0 0 / 0.35), transparent 55%);
+  }
+}
+
+/* ---------- Panel and agent presence (panel agent) ---------- */
+:root {
+  /* The pressed segment: one step above the raised track; white in light. */
+  --segment-on: light-dark(#ffffff, #303030);
+  /* Lit rows and the lease pill inside floating feeds and on the panel. */
+  --feed-chip: light-dark(#e3e3e3, #262626);
+  /* What a live dot is cut out of: the surface the avatar sits on. */
+  --avatar-ring: var(--background);
+}
+
+[data-canvas="inspector"] {
+  --avatar-ring: var(--canvas-inspector);
+}
+
+[data-slot="popover-content"] {
+  --avatar-ring: var(--popover);
+}
+
+/* The stage chip sits on the art, so it keeps its dark glass in both appearances. */
+.agent-change-chip {
+  background: rgb(10 10 10 / 0.84);
+  color: #f5f5f5;
+  outline: 1px solid rgb(255 255 255 / 0.08);
+  animation: agent-chip-in 160ms cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+
+@keyframes agent-chip-in {
+  from {
+    opacity: 0;
+    translate: 0 6px;
+  }
+}
+
+/* Colour wells carry a hairline so white paper and black ink keep their edge. */
+.panel-well {
+  outline: 1px solid rgb(0 0 0 / 0.1);
+  outline-offset: -1px;
+}
+
+.dark .panel-well {
+  outline-color: rgb(255 255 255 / 0.12);
+}
+
+/* Panel sliders: a 4px track, a foreground fill, a 16px knob that haloes while held. */
+.panel-slider [data-slot="slider-track"] {
+  height: 4px;
+  background: var(--secondary);
+}
+
+.panel-slider [data-slot="slider-range"] {
+  background: var(--foreground);
+}
+
+.panel-slider [data-slot="slider-thumb"] {
+  width: 16px;
+  height: 16px;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.5);
+  transition: box-shadow 120ms ease-out;
+}
+
+.panel-slider[data-dragging] [data-slot="slider-thumb"],
+.panel-slider [data-slot="slider-thumb"][data-dragging],
+.panel-slider [data-slot="slider-thumb"]:focus-visible {
+  box-shadow:
+    0 0 0 5px color-mix(in srgb, var(--foreground) 14%, transparent),
+    0 1px 3px rgb(0 0 0 / 0.5);
+}
+
+/* ---------- Shell (shell agent): titlebar, Home, layout, compact sheet ---------- */
+@layer components {
+  .studio-shell {
+    --stage-head-height: 48px;
+    --stage-player-height: 56px;
+  }
+
+  @media (max-width: 999px) {
+    .studio-shell {
+      --stage-head-height: 44px;
+      --stage-player-height: 48px;
+    }
+  }
+
+  /* Below the compact breakpoint the panel floats over the stage, stopping above the player. */
+  .studio-panel-sheet {
+    position: absolute;
+    z-index: 30;
+    top: var(--stage-head-height);
+    right: 8px;
+    width: min(296px, calc(100% - 16px));
+  }
+
+  /* Resize grips stay out of the picture until the pointer finds them. */
+  .resize-handle::after {
+    opacity: 0;
+    transition: opacity 150ms ease-out;
   }
 }

@@ -57,6 +57,11 @@ export function planStudioEvent(event: StudioEvent, context: StudioSyncContext):
       plan.refreshExports = true;
     }
   }
+  if (event.type === "claim_composition" || event.type === "release_composition") {
+    // A claim changes who is working, not what the project holds.
+    plan.reloadLists = true;
+    return plan;
+  }
   if (event.type === "create_composition" && event.compositionId) {
     plan.reloadLists = true;
     plan.selectComposition = event.compositionId;

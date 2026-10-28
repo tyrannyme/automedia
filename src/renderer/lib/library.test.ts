@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 import { limits } from "@shared/limits.ts";
 import {
   fileExtension,
+  formatBytes,
+  formatMediaLength,
   imageTrackFromLibrary,
+  libraryAssetKind,
+  libraryAssets,
   isImageLibraryAsset,
   isVideoLibraryAsset,
 } from "./library.ts";
@@ -84,5 +88,25 @@ describe("library helpers", () => {
     });
     expect(track.lane).toBe(3);
     expect(track.start).toBe(0);
+  });
+
+  it("lists project media from assets/ and names its kind", () => {
+    expect(libraryAssets(["index.html", "assets/beat.ogg", "assets/guns.mp4"])).toEqual([
+      "beat.ogg",
+      "guns.mp4",
+    ]);
+    expect(libraryAssetKind("guns.mp4")).toBe("video");
+    expect(libraryAssetKind("still.png")).toBe("image");
+    expect(libraryAssetKind("beat.ogg")).toBe("audio");
+  });
+
+  it("formats sizes and lengths for receipts", () => {
+    expect(formatBytes(512)).toBe("512 B");
+    expect(formatBytes(240_000)).toBe("240 KB");
+    expect(formatBytes(3_300_000)).toBe("3.3 MB");
+    expect(formatBytes(999_999)).toBe("1.0 MB");
+    expect(formatMediaLength(4.93)).toBe("4.93 s");
+    expect(formatMediaLength(12.34)).toBe("12.3 s");
+    expect(formatMediaLength(62.5)).toBe("1:02.5");
   });
 });
