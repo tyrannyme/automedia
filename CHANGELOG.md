@@ -2,7 +2,7 @@
 
 Notable changes to Automedia. Releases also list every merged pull request.
 
-## Unreleased
+## 0.6.1 (13 Nov 2026)
 
 ### Fixed
 
