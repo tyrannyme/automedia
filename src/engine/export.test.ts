@@ -59,13 +59,34 @@ describe("ExportQueue", () => {
     expect(frameDelays(4, 25, 10)).toEqual([40, 40, 40, 40]);
   });
 
-  it("maps quality to H.264 bitrate and VP9 constant quality", () => {
-    const [nvenc, x264] = encoderChoices("mp4", 80);
+  it("maps quality to H.264 and VP9 constant quality", () => {
+    const [nvenc, x264] = encoderChoices("mp4", 80, 1920, 1080, 30);
     expect([nvenc?.name, x264?.name]).toEqual(["h264_nvenc", "libx264"]);
-    expect(x264?.options["b:v"]).toBe("4250000");
-    expect(encoderChoices("webm", 80)[0]?.name).toBe("libvpx-vp9");
-    expect(encoderChoices("webm", 1)[0]?.options.crf).toBe("40");
-    expect(encoderChoices("webm", 100)[0]?.options.crf).toBe("15");
+    expect(x264?.options.crf).toBe("17");
+    expect(nvenc?.options).toMatchObject({ b: "0", rc: "vbr", cq: "17" });
+    expect(encoderChoices("mp4", 1, 1920, 1080, 30)[1]?.options.crf).toBe("38");
+    expect(encoderChoices("mp4", 100, 1920, 1080, 30)[1]?.options.crf).toBe("12");
+    expect(encoderChoices("webm", 80, 1920, 1080, 30)[0]?.name).toBe("libvpx-vp9");
+    expect(encoderChoices("webm", 1, 1920, 1080, 30)[0]?.options.crf).toBe("40");
+    expect(encoderChoices("webm", 100, 1920, 1080, 30)[0]?.options.crf).toBe("15");
+  });
+
+  it.each([
+    [320, 240, 30, "4.1", "62500000"],
+    [1920, 1080, 30, "4.1", "62500000"],
+    [1080, 1080, 60, "4.2", "62500000"],
+    [3840, 2160, 30, "5.1", "300000000"],
+    [3840, 2160, 60, "5.2", "300000000"],
+  ])("caps H.264 at %d x %d, %d fps, to level %s", (width, height, fps, level, maxrate) => {
+    for (const choice of encoderChoices("mp4", 100, width, height, fps)) {
+      expect(choice.options).toMatchObject({ level, maxrate, bufsize: expect.any(String) });
+    }
+  });
+
+  it("leaves the level to the encoder past level 5.2", () => {
+    const [nvenc] = encoderChoices("mp4", 100, 7680, 4320, 30);
+    expect(nvenc?.options.level).toBeUndefined();
+    expect(nvenc?.options.maxrate).toBeUndefined();
   });
 
   it.each([

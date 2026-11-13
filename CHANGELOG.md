@@ -2,6 +2,14 @@
 
 Notable changes to Automedia. Releases also list every merged pull request.
 
+## 0.6.1 (13 Nov 2026)
+
+### Fixed
+
+- MP4 quality sets the picture's quality. On a busy 1080p60 project, quality 20 is now about 4 Mb/s and 100 about 49 Mb/s; before, every quality encoded the same, about 3.4 Mb/s on that project, and detailed motion broke into blocks.
+- MP4 and WebM frames are coded against the ones before them again. Every captured frame was being coded on its own, which cost MP4 its detail and made a WebM about four times larger than it needed to be.
+- MP4 files keep to the H.264 level they declare, at least 4.1, so hardware players can decode them.
+
 ## 0.6.0 (27 Oct 2026)
 
 ### Breaking

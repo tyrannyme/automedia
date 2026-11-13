@@ -6,6 +6,7 @@ import {
   AVCOL_TRC_BT709,
   AVERROR_EAGAIN,
   AVERROR_EOF,
+  AV_PICTURE_TYPE_NONE,
   AV_PIX_FMT_YUV420P,
   AV_PIX_FMT_YUVJ420P,
   Codec,
@@ -43,34 +44,75 @@ export type FrameEncoder = {
 type EncoderChoice = { name: FFEncoderCodec; options: Record<string, string> };
 
 /**
- * H.264 for MP4: NVENC on a machine that has it, x264 otherwise. VP9 for
- * WebM. The rate follows the export's quality the way the software path did.
+ * H.264 levels from 4.1, which every HD player decodes: the largest frame and
+ * the macroblocks a second each allows, and its High profile bitrate and
+ * buffer limits.
  */
-export function encoderChoices(format: "mp4" | "webm", quality: number): EncoderChoice[] {
+const h264Levels = [
+  { level: "4.1", frame: 8_192, rate: 245_760, bitrate: 62_500_000, buffer: 78_125_000 },
+  { level: "4.2", frame: 8_704, rate: 522_240, bitrate: 62_500_000, buffer: 78_125_000 },
+  { level: "5.1", frame: 36_864, rate: 983_040, bitrate: 300_000_000, buffer: 300_000_000 },
+  { level: "5.2", frame: 36_864, rate: 2_073_600, bitrate: 300_000_000, buffer: 300_000_000 },
+];
+
+/**
+ * The lowest level that fits the picture, and its rate limits. Left to
+ * themselves, encoders pick a level from the frame size alone: NVENC then
+ * holds the stream under it, which caps a high quality, and x264 ignores it,
+ * which writes a stream players may refuse.
+ */
+function h264Level(width: number, height: number, fps: number) {
+  const frame = Math.ceil(width / 16) * Math.ceil(height / 16);
+  const fit = h264Levels.find((level) => frame <= level.frame && frame * fps <= level.rate);
+  if (!fit) return {};
+  return { level: fit.level, maxrate: String(fit.bitrate), bufsize: String(fit.buffer) };
+}
+
+/**
+ * H.264 for MP4: NVENC on a machine that has it, x264 otherwise. VP9 for
+ * WebM. Both hold a constant quality that follows the export's, so busy
+ * footage gets the bits it needs and a still slide stays small.
+ *
+ * Options are avcodec option names, not ffmpeg command-line ones: open2
+ * silently ignores a key it doesn't know, such as `b:v`.
+ */
+export function encoderChoices(
+  format: "mp4" | "webm",
+  quality: number,
+  width: number,
+  height: number,
+  fps: number,
+): EncoderChoice[] {
   if (format === "webm") {
-    // Constant quality, like the previous `-b:v 0 -crf`: 40 at quality 1, 15 at 100.
+    // 40 at quality 1, 15 at 100, on VP9's 0-63 scale.
     const crf = String(Math.round(40 - (quality - 1) * (25 / 99)));
     return [
       {
         name: FF_ENCODER_LIBVPX_VP9,
-        options: { crf, "b:v": "0", deadline: "realtime", "cpu-used": "5", "row-mt": "1" },
+        options: { crf, deadline: "realtime", "cpu-used": "5", "row-mt": "1" },
       },
     ];
   }
-  const bitrate = String(250_000 + quality * 50_000);
-  const rate = {
-    "b:v": bitrate,
-    maxrate: String(Number(bitrate) * 2),
-    bufsize: String(Number(bitrate) * 2),
-  };
+  // 38 at quality 1, 12 at 100, on H.264's 0-51 scale; x264's own default, 23, is about 60.
+  const quantizer = String(Math.round(38 - (quality - 1) * (26 / 99)));
+  const level = h264Level(width, height, fps);
   return [
     {
       name: FF_ENCODER_H264_NVENC,
-      options: { ...rate, preset: "p5", rc: "vbr", profile: "high", bf: "2" },
+      // NVENC's default 2 Mb/s target would cap the constant quality.
+      options: {
+        b: "0",
+        rc: "vbr",
+        cq: quantizer,
+        ...level,
+        preset: "p5",
+        profile: "high",
+        bf: "2",
+      },
     },
     {
       name: FF_ENCODER_LIBX264,
-      options: { ...rate, preset: "veryfast", profile: "high", bf: "2" },
+      options: { crf: quantizer, ...level, preset: "veryfast", profile: "high", bf: "2" },
     },
   ];
 }
@@ -89,7 +131,7 @@ async function openEncoder(
   height: number,
   fps: number,
 ): Promise<{ context: CodecContext }> {
-  for (const choice of encoderChoices(format, quality)) {
+  for (const choice of encoderChoices(format, quality, width, height, fps)) {
     if (missingEncoders.has(choice.name)) continue;
     const codec = Codec.findEncoderByName(choice.name);
     if (!codec) continue;
@@ -215,6 +257,10 @@ export async function openFrameEncoder(
   return {
     codec: () => codec,
     async encode(frame) {
+      // Every decoded JPEG is an I picture, and encoders take that as an
+      // order: each frame would be coded alone, with nothing left over for
+      // motion. The encoder places its own keyframes.
+      frame.pictType = AV_PICTURE_TYPE_NONE;
       frame.pts = BigInt(next);
       next += 1;
       try {
